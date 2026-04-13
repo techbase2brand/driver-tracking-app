@@ -3,7 +3,11 @@ import React, {useEffect, useState} from 'react';
 import {View, FlatList, StyleSheet, Text,ActivityIndicator} from 'react-native';
 import OrderItem from '../screensComponents/OrderItem';
 import {useSelector} from 'react-redux';
-import {BACKEND_URL} from '../constant/Constant';
+import {
+  BACKEND_URL,
+  USE_STATIC_DEMO_MODE,
+  STATIC_DEMO_ORDERS_RESPONSE,
+} from '../constant/Constant';
 
 const OrderHistoryScreen = () => {
   const email = useSelector(state => state?.email?.driver?.email);
@@ -13,7 +17,11 @@ const OrderHistoryScreen = () => {
 
   const fetchOrders = async () => {
     try {
-      setLoading(true);  // Start loading
+      setLoading(true);
+      if (USE_STATIC_DEMO_MODE) {
+        setOrders(STATIC_DEMO_ORDERS_RESPONSE);
+        return;
+      }
       const response = await fetch(`${BACKEND_URL}/api/driverOrders`, {
         method: 'POST',
         headers: {
@@ -29,13 +37,13 @@ const OrderHistoryScreen = () => {
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
-      setLoading(false);  // End loading
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [email]);
   return (
     // <View style={styles.container}>
     //   <Text style={styles.title}>Order History</Text>

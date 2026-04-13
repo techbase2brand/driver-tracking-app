@@ -216,7 +216,6 @@ export default function SignupScreen({navigation}) {
   const onRegisterClick = () => {
     console.log('working....');
     dispatch(setEmail(name));
-    navigation.navigate('Home');
   };
   return (
     <ScrollView contentContainerStyle={styles.container}>

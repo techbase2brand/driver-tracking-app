@@ -1,5 +1,51 @@
-export const GOOGLE_MAPS_APIKEY = 'AIzaSyAZCbN0MqbENktC0BQbGEJjI5E9wWoHCBE';
-export const BACKEND_URL="https://foam-writers-ruled-eliminate.trycloudflare.com/"
+export const GOOGLE_MAPS_APIKEY = 'AIzaSyBEQp-ZFMYZjsTNyximu2pAifQ9EWA4W3M';
+export const BACKEND_URL = 'https://foam-writers-ruled-eliminate.trycloudflare.com/';
+
+/**
+ * Client demo: no backend required. Set to false to use real API calls again
+ * (LoginScreen / HomeScreen / OrderHistoryScreen / DriverScreen).
+ */
+export const USE_STATIC_DEMO_MODE = true;
+
+export const STATIC_DEMO_EMAIL = 'driver@yopmail.com';
+export const STATIC_DEMO_PASSWORD = '12345678';
+
+/** Fixed drop point for directions (matches previous HomeScreen DESTINATION). */
+export const STATIC_DEMO_DESTINATION = {
+  latitude: 30.678212,
+  longitude: 76.667856,
+  addressLabel: 'Demo delivery — Sector 17, Chandigarh',
+};
+
+/** Same shape as driverLogin success payload (see useSelector state.email.driver.email). */
+export const STATIC_DEMO_LOGIN_RESPONSE = {
+  driver: {
+    email: STATIC_DEMO_EMAIL,
+    name: 'Demo Driver',
+  },
+};
+
+/** Same shape as /api/driverOrders JSON. */
+export const STATIC_DEMO_ORDERS_RESPONSE = {
+  getorderCreateData: [
+    {
+      id: 'demo-order-1',
+      orderCreateData_id: 'DEMO-88421',
+      billing_address: JSON.stringify({
+        address1: STATIC_DEMO_DESTINATION.addressLabel,
+        phone: '9876543210',
+      }),
+    },
+    {
+      id: 'demo-order-2',
+      orderCreateData_id: 'DEMO-88422',
+      billing_address: JSON.stringify({
+        address1: 'Industrial Area Phase 1, Chandigarh',
+        phone: '9876500000',
+      }),
+    },
+  ],
+};
 export const  statuses = [
     {label: 'Attempted Delivery', value: 'attempted_delivery'},
     {label: 'Confirmed', value: 'confirmed'},

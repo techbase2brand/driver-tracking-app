@@ -11,9 +11,10 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme">
+      <!-- Keep in sync with GOOGLE_MAPS_APIKEY in src/constant/Constant.js (Maps SDK + Directions). -->
       <meta-data
         android:name="com.google.android.geo.API_KEY"
-        android:value="AIzaSyAZCbN0MqbENktC0BQbGEJjI5E9wWoHCBE"/>
+        android:value="AIzaSyBEQp-ZFMYZjsTNyximu2pAifQ9EWA4W3M"/>
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

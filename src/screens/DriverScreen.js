@@ -1,26 +1,31 @@
 import React, {useState, useEffect, useRef} from 'react';
-import {
-  StyleSheet,
-  View,
-  Dimensions,
-  PermissionsAndroid,
-  Platform,
-  Alert,
-  Text,
-} from 'react-native';
+import {StyleSheet, View, Dimensions, Platform, Alert, Text} from 'react-native';
 import MapView, {Marker} from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import Geolocation from 'react-native-geolocation-service';
-import { BACKEND_URL, GOOGLE_MAPS_APIKEY } from '../constant/Constant';
-import { useSelector } from 'react-redux';
+import {
+  BACKEND_URL,
+  GOOGLE_MAPS_APIKEY,
+  USE_STATIC_DEMO_MODE,
+  STATIC_DEMO_DESTINATION,
+} from '../constant/Constant';
+import {useSelector} from 'react-redux';
+import {
+  ensureAndroidLocationPermission,
+  ensureIosLocationAuthorization,
+  getCurrentPositionWithFallback,
+  defaultWatchOptions,
+} from '../utils/locationHelpers';
 
 const {width, height} = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 2.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-// const DESTINATION = {latitude: 30.7333, longitude: 76.7794};
-const DESTINATION = {latitude: 30.678212, longitude: 76.667856};
+const DESTINATION = {
+  latitude: STATIC_DEMO_DESTINATION.latitude,
+  longitude: STATIC_DEMO_DESTINATION.longitude,
+};
 
 export default function DriverScreen() {
   const mapRef = useRef();
@@ -34,6 +39,7 @@ export default function DriverScreen() {
     latitudeDelta: LATITUDE_DELTA,
     longitudeDelta: LONGITUDE_DELTA,
   });
+  const nearbyAlertSent = useRef(false);
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the Earth in km
     const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -75,67 +81,74 @@ export default function DriverScreen() {
     }
   };
   useEffect(() => {
+    let watchId;
+
     const requestLocationPermission = async () => {
-      if (Platform.OS === 'android') {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: 'Location Access Permission',
-              message:
-                'We need access to your location to show your position on the map.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            Alert.alert('Location permission denied');
-            return;
+      try {
+        const androidOk = await ensureAndroidLocationPermission();
+        if (Platform.OS === 'android' && !androidOk) {
+          if (__DEV__) {
+            console.warn('Location permission not granted');
           }
-        } catch (err) {
-          console.warn(err);
           return;
         }
+        const iosOk = await ensureIosLocationAuthorization();
+        if (Platform.OS === 'ios' && !iosOk) {
+          if (__DEV__) {
+            console.warn('Location when-in-use not granted');
+          }
+          return;
+        }
+      } catch (e) {
+        if (__DEV__) {
+          console.warn('Location permission:', e);
+        }
+        return;
       }
 
-      Geolocation.watchPosition(
-        position => {
-          const {latitude, longitude} = position.coords;
-          setPickup({
-            latitude,
-            longitude,
-            latitudeDelta: LATITUDE_DELTA,
-            longitudeDelta: LONGITUDE_DELTA,
-          });
+      const applyPosition = position => {
+        const {latitude, longitude} = position.coords;
+        setPickup({
+          latitude,
+          longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
+        });
 
-          const distance = calculateDistance(
-            latitude,
-            longitude,
-            DESTINATION.latitude,
-            DESTINATION.longitude,
-          );
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          DESTINATION.latitude,
+          DESTINATION.longitude,
+        );
 
+        if (!USE_STATIC_DEMO_MODE) {
           sendDriverLocation(latitude, longitude);
-          // Check if user is in current location (e.g., within 0.1 km)
-          if (distance < 0.1) {
-            Alert.alert('You are in the current location');
+        }
+        if (distance < 0.1 && !nearbyAlertSent.current) {
+          nearbyAlertSent.current = true;
+          Alert.alert('You are near the destination');
+        }
+      };
+
+      if (Platform.OS === 'ios') {
+        getCurrentPositionWithFallback(applyPosition);
+      }
+      watchId = Geolocation.watchPosition(
+        applyPosition,
+        err => {
+          if (__DEV__) {
+            console.warn('Geolocation watch:', err?.code, err?.message);
           }
         },
-        error => {
-          console.error(error);
-          Alert.alert('Error', 'Could not get your location');
-        },
-        {
-          enableHighAccuracy: true,
-          distanceFilter: 0,
-          interval: 20000,
-          fastestInterval: 2000,
-        },
+        defaultWatchOptions,
       );
     };
     requestLocationPermission();
     return () => {
+      if (watchId != null) {
+        Geolocation.clearWatch(watchId);
+      }
       Geolocation.stopObserving();
     };
   }, []);

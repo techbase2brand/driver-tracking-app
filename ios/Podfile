@@ -17,6 +17,10 @@ end
 target 'LocationTracking' do
   config = use_native_modules!
 
+  # Required for Firebase iOS SDK 9+ with React Native Firebase (see https://rnfirebase.io)
+  use_frameworks! :linkage => :static
+  $RNFirebaseAsStaticFramework = true
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.

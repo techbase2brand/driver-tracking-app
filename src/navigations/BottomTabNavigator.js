@@ -28,16 +28,11 @@ const CustomHeader = () => {
 };
 function HomeStack() {
   return (
-    <Stack.Navigator
-      initialRouteName="Home"
-      // screenOptions={{
-      //   header: () => <CustomHeader />, // Custom header component
-      // }}
-    >
+    <Stack.Navigator initialRouteName="HomeMain">
       <Stack.Screen
-        name="Home"
+        name="HomeMain"
         component={HomeScreen}
-        // options={{ headerShown: false }}
+        options={{headerShown: false}}
       />
       <Stack.Screen
         name="DriverScreen"
@@ -83,7 +78,7 @@ const BottomTabNavigator = () => {
       screenOptions={({route}) => ({
         tabBarIcon: ({focused, color, size}) => {
           let iconName;
-          if (route.name === 'Home') {
+          if (route.name === 'HomeTab') {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Orderhistory') {
             iconName = focused ? 'basket' : 'basket-outline';
@@ -97,10 +92,11 @@ const BottomTabNavigator = () => {
       })}
       detachInactiveScreens={false}>
       <Tab.Screen
-        name="Home"
+        name="HomeTab"
         component={HomeStack}
         options={{
           headerShown: false,
+          tabBarLabel: 'Home',
         }}
       />
       <Tab.Screen

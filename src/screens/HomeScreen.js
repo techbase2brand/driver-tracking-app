@@ -7,27 +7,40 @@ import {
   Dimensions,
   Image,
   ScrollView,
-  FlatList,
   Linking,
   Alert,
-  PermissionsAndroid,
+  Platform,
+  InteractionManager,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
-import MapView, {Marker} from 'react-native-maps';
+import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import Geolocation from 'react-native-geolocation-service';
 import Button from '../shared/Button';
 import OrderStatus from '../screensComponents/OrderStatus';
-import {BACKEND_URL, statuses, GOOGLE_MAPS_APIKEY} from '../constant/Constant';
+import {
+  BACKEND_URL,
+  statuses,
+  GOOGLE_MAPS_APIKEY,
+  USE_STATIC_DEMO_MODE,
+  STATIC_DEMO_DESTINATION,
+  STATIC_DEMO_ORDERS_RESPONSE,
+} from '../constant/Constant';
 import {useSelector} from 'react-redux';
+import {
+  ensureAndroidLocationPermission,
+  ensureIosLocationAuthorization,
+  getCurrentPositionWithFallback,
+  defaultWatchOptions,
+} from '../utils/locationHelpers';
 
 const CUSTOMER_DETAILS = {
   name: 'John Doe',
   address: '263 Main St, Springfield',
   phone: '1234567890',
-  orderName: 'Order Name',
+  orderName: 'Demo order',
   orderId: '#123456',
   image:
     'https://images.unsplash.com/photo-1485962398705-ef6a13c41e8f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fGZvb2QlMjBpbWdlc3xlbnwwfHwwfHx8MA%3D%3D',
@@ -39,8 +52,10 @@ const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 2.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-const DESTINATION = {latitude: 30.678212, longitude: 76.667856};
-// const GOOGLE_MAPS_APIKEY = 'AIzaSyAZCbN0MqbENktC0BQbGEJjI5E9wWoHCBE';
+const DESTINATION = {
+  latitude: STATIC_DEMO_DESTINATION.latitude,
+  longitude: STATIC_DEMO_DESTINATION.longitude,
+};
 
 const HomeScreen = ({navigation}) => {
   const mapRef = useRef();
@@ -56,6 +71,8 @@ const HomeScreen = ({navigation}) => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [orders, setOrders] = useState();
   const [billingAddress, setBillingAddress] = useState();
+  const [mapReady, setMapReady] = useState(false);
+  const [statusSubmitError, setStatusSubmitError] = useState('');
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the Earth in km
@@ -73,6 +90,20 @@ const HomeScreen = ({navigation}) => {
   };
 
   const fetchOrders = async () => {
+    if (USE_STATIC_DEMO_MODE) {
+      const data = STATIC_DEMO_ORDERS_RESPONSE;
+      setOrders(data);
+      try {
+        const billing = JSON.parse(
+          data?.getorderCreateData?.[0]?.billing_address,
+        );
+        setBillingAddress(billing);
+      } catch (e) {
+        console.error('Static billing parse:', e);
+      }
+      return;
+    }
+
     try {
       const response = await fetch(`${BACKEND_URL}/api/driverOrders`, {
         method: 'POST',
@@ -97,72 +128,95 @@ const HomeScreen = ({navigation}) => {
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [email]);
 
   useEffect(() => {
+    if (selectedStatus) {
+      setStatusSubmitError('');
+    }
+  }, [selectedStatus]);
+
+  useEffect(() => {
+    let watchId;
+
     const requestLocationPermission = async () => {
-      if (Platform.OS === 'android') {
-        try {
-          const granted = await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-            {
-              title: 'Location Access Permission',
-              message:
-                'We need access to your location to show your position on the map.',
-              buttonNeutral: 'Ask Me Later',
-              buttonNegative: 'Cancel',
-              buttonPositive: 'OK',
-            },
-          );
-          if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-            Alert.alert('Location permission denied');
-            return;
+      try {
+        const androidOk = await ensureAndroidLocationPermission();
+        if (Platform.OS === 'android' && !androidOk) {
+          if (__DEV__) {
+            console.warn('Location permission not granted');
           }
-        } catch (err) {
-          console.warn(err);
           return;
         }
+
+        const iosOk = await ensureIosLocationAuthorization();
+        if (Platform.OS === 'ios' && !iosOk) {
+          if (__DEV__) {
+            console.warn('Location when-in-use not granted');
+          }
+          return;
+        }
+      } catch (e) {
+        if (__DEV__) {
+          console.warn('Location permission:', e);
+        }
+        return;
       }
 
-      Geolocation.watchPosition(
-        position => {
-          const {latitude, longitude} = position.coords;
-          setPickup({
-            latitude,
-            longitude,
-            latitudeDelta: LATITUDE_DELTA,
-            longitudeDelta: LONGITUDE_DELTA,
-          });
+      const nearbyAlertSent = {current: false};
 
-          // sendLocationToBackend({latitude, longitude});
+      const applyPosition = position => {
+        const {latitude, longitude} = position.coords;
+        setPickup({
+          latitude,
+          longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA,
+        });
 
-          const distance = calculateDistance(
-            latitude,
-            longitude,
-            DESTINATION.latitude,
-            DESTINATION.longitude,
-          );
-          // Check if user is in current location (e.g., within 0.1 km)
-          if (distance < 0.1) {
-            Alert.alert('You are in the current location');
-          }
-        },
-        error => {
-          console.error(error);
-          Alert.alert('Error', 'Could not get your location');
-        },
-        {
-          enableHighAccuracy: true,
-          distanceFilter: 0,
-          interval: 40000,
-          fastestInterval: 2000,
-        },
-      );
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          DESTINATION.latitude,
+          DESTINATION.longitude,
+        );
+        if (distance < 0.1 && !nearbyAlertSent.current) {
+          nearbyAlertSent.current = true;
+          Alert.alert('You are near the destination');
+        }
+      };
+
+      const startWatching = () => {
+        if (Platform.OS === 'ios') {
+          getCurrentPositionWithFallback(applyPosition);
+        }
+        watchId = Geolocation.watchPosition(
+          applyPosition,
+          err => {
+            if (__DEV__) {
+              console.warn('Geolocation watch:', err?.code, err?.message);
+            }
+          },
+          defaultWatchOptions,
+        );
+      };
+
+      const runWatch = () => {
+        if (Platform.OS === 'android') {
+          setTimeout(startWatching, 400);
+        } else {
+          startWatching();
+        }
+      };
+      InteractionManager.runAfterInteractions(runWatch);
     };
 
     requestLocationPermission();
 
     return () => {
+      if (watchId != null) {
+        Geolocation.clearWatch(watchId);
+      }
       Geolocation.stopObserving();
     };
   }, []);
@@ -181,14 +235,25 @@ const HomeScreen = ({navigation}) => {
   };
   const handleSubmit = () => {
     if (selectedStatus) {
-      // Prepare the request body
+      setStatusSubmitError('');
+      if (USE_STATIC_DEMO_MODE) {
+        if (__DEV__) {
+          console.log('deliveryStatus (local)', {
+            status: selectedStatus,
+            orderId: orders?.getorderCreateData?.[0]?.orderCreateData_id,
+          });
+        }
+        Alert.alert('Success', 'Status updated successfully.');
+        setSelectedStatus('');
+        return;
+      }
+
       const requestBody = {
         status: selectedStatus,
         trackingUrl: 'https://google.com',
         trackingNumber: 123312423433,
         orderId: orders?.getorderCreateData?.[0]?.orderCreateData_id,
       };
-      // Make the API call
       fetch(`${BACKEND_URL}/api/deliveryStatus`, {
         method: 'POST',
         headers: {
@@ -212,46 +277,64 @@ const HomeScreen = ({navigation}) => {
 
       setSelectedStatus('');
     } else {
-      Alert.alert('Error', 'Please select a status.');
+      setStatusSubmitError('Please select a status first.');
     }
   };
 
+  const pickupLatLng = {
+    latitude: pickup.latitude,
+    longitude: pickup.longitude,
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Map Section */}
-      <View style={{height: 300, borderRadius: 20}}>
-        <MapView initialRegion={pickup} ref={mapRef} style={styles.map}>
-          <Marker coordinate={pickup} title="You are here" />
-          <Marker coordinate={DESTINATION} title="Destination" />
-          <MapViewDirections
-            origin={pickup}
-            destination={DESTINATION}
-            apikey={GOOGLE_MAPS_APIKEY}
-            strokeWidth={3}
-            strokeColor="black"
-            optimizeWaypoints={true}
-            onReady={result => {
-              console.log('Directions distance', result.distance);
-              console.log('Directions duration', result.duration.toFixed(1));
-              setCalDistance(result.distance.toFixed(1));
-              setCalDuration(result.duration.toFixed(1));
-              if (mapRef.current) {
-                mapRef.current.fitToCoordinates(result.coordinates, {
-                  edgePadding: {
-                    right: 40,
-                    bottom: 300,
-                    left: 30,
-                    top: 250,
-                  },
-                });
-              } else {
-                console.warn('Map reference is not set');
-              }
-            }}
-            onError={errorMessage => {
-              console.error('Directions error: ', errorMessage);
-            }}
+    <View style={styles.screenRoot}>
+      <View style={styles.mapSection}>
+        <MapView
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          initialRegion={pickup}
+          ref={mapRef}
+          style={styles.map}
+          scrollEnabled={false}
+          rotateEnabled={false}
+          pitchEnabled={false}
+          onMapReady={() => setMapReady(true)}>
+          <Marker coordinate={pickupLatLng} title="You are here" />
+          <Marker
+            coordinate={DESTINATION}
+            title="Destination"
+            description={STATIC_DEMO_DESTINATION.addressLabel}
           />
+          {mapReady ? (
+            <MapViewDirections
+              origin={pickupLatLng}
+              destination={DESTINATION}
+              apikey={GOOGLE_MAPS_APIKEY}
+              strokeWidth={3}
+              strokeColor="black"
+              optimizeWaypoints={true}
+              onReady={result => {
+                console.log('Directions distance', result.distance);
+                console.log('Directions duration', result.duration.toFixed(1));
+                setCalDistance(result.distance.toFixed(1));
+                setCalDuration(result.duration.toFixed(1));
+                if (mapRef.current) {
+                  mapRef.current.fitToCoordinates(result.coordinates, {
+                    edgePadding: {
+                      right: 40,
+                      bottom: 300,
+                      left: 30,
+                      top: 250,
+                    },
+                  });
+                } else {
+                  console.warn('Map reference is not set');
+                }
+              }}
+              onError={errorMessage => {
+                console.error('Directions error: ', errorMessage);
+              }}
+            />
+          ) : null}
         </MapView>
         <TouchableOpacity
           style={styles.directionsButton}
@@ -260,7 +343,11 @@ const HomeScreen = ({navigation}) => {
         </TouchableOpacity>
       </View>
 
-      {/* Order Sections */}
+      <ScrollView
+        style={styles.ordersScroll}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.ordersScrollContent}>
       <View style={styles.ordersSection}>
         <View style={styles.orderContainer}>
           <Image
@@ -336,21 +423,34 @@ const HomeScreen = ({navigation}) => {
           setSelectedStatus={setSelectedStatus}
           statuses={statuses}
         />
+        {statusSubmitError ? (
+          <Text style={styles.statusSubmitError}>{statusSubmitError}</Text>
+        ) : null}
         <Button onloginClick={handleSubmit} title="Submit" />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  screenRoot: {
     flex: 1,
     padding: 10,
   },
+  mapSection: {
+    height: 300,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  ordersScroll: {
+    flex: 1,
+  },
+  ordersScrollContent: {
+    paddingBottom: 32,
+  },
   map: {
     ...StyleSheet.absoluteFillObject,
-    height: 300,
-    width: '100%',
   },
   directionsButton: {
     position: 'absolute',
@@ -365,6 +465,13 @@ const styles = StyleSheet.create({
   },
   ordersSection: {
     marginTop: 20,
+  },
+  statusSubmitError: {
+    color: '#c62828',
+    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 4,
+    marginHorizontal: 4,
   },
   sectionTitle: {
     fontSize: 24,

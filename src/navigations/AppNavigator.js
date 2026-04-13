@@ -9,9 +9,13 @@ import SplashScreen from '../screens/SplashScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 
 const AppNavigator = () => {
-  const emailToken = useSelector(state => state.email.token);
+  /** Login payload is stored as root `email`: `{ driver: { email }, ... }` or API may add `token`. */
+  const session = useSelector(state => state?.email);
+  const isLoggedIn = Boolean(session?.driver?.email || session?.token);
 
-  console.log('Email/////', emailToken);
+  if (__DEV__) {
+    console.log('Auth session email:', session?.driver?.email ?? '(none)');
+  }
   const [isLoading, setIsLoading] = useState(true);
   const [isFirstLaunch, setIsFirstLaunch] = useState(null);
 
@@ -52,7 +56,7 @@ const AppNavigator = () => {
 
   return (
     <NavigationContainer>
-      {emailToken != undefined ? <BottomTabNavigator /> : <AuthNavigator />}
+      {isLoggedIn ? <BottomTabNavigator /> : <AuthNavigator />}
     </NavigationContainer>
   );
 };

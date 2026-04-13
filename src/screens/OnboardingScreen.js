@@ -25,12 +25,12 @@ const OnboardingScreen = ({onFinish}) => {
         <View style={{flex: 2}} />
         <View style={{flex: 1}}>
           <Text style={[styles.text, {textAlign: 'center'}]}>
-            Lorem ipsum dolor sit amet, consectetur.
+            Deliver smarter, every trip
           </Text>
           <Text style={styles.subText}>
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla non
-            eros rutrum, semper ex sed, iaculis quam. Vivamus sit amet vehicula
-            nulla.
+            See your orders, navigate with live maps and directions, update
+            delivery status in one place, and keep customers in the loop—built
+            for drivers on the road.
           </Text>
           {/* <Text title="Get Started" onPress={onFinish} /> */}
           <View
