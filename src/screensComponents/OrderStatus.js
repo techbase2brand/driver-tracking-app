@@ -16,13 +16,14 @@ import {
 import {launchCamera} from 'react-native-image-picker';
 import Icon from 'react-native-vector-icons/AntDesign';
 
-const DELIVERED_STATUS = 'delivered';
+const DELIVERED_STATUS = 'DELIVERED';
 
 const OrderStatus = ({
   selectedStatus,
   setSelectedStatus,
   statuses,
   ordersForStatus = [],
+  statusSubmitError,
   onOrderChosen,
   selectedOrderLabel,
   selectedOrderId,
@@ -36,6 +37,7 @@ const OrderStatus = ({
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [orderModalVisible, setOrderModalVisible] = useState(false);
   const [tempSelectedOrderId, setTempSelectedOrderId] = useState(null);
+  const [tempSelectedStatus, setTempSelectedStatus] = useState('');
 
   const openDeliveryCamera = async () => {
     try {
@@ -82,8 +84,11 @@ const OrderStatus = ({
     }
   };
 
-  const handleStatusPress = item => {
-    if (item.value === DELIVERED_STATUS) {
+  const handleStatusContinue = () => {
+    if (!tempSelectedStatus) {
+      return;
+    }
+    if (tempSelectedStatus === DELIVERED_STATUS) {
       setSelectedStatus(DELIVERED_STATUS);
       setStatusModalVisible(false);
       setDeliveryProofModalVisible?.(true);
@@ -91,13 +96,21 @@ const OrderStatus = ({
     }
     onDeliveryProofChange?.(null);
     setDeliveryProofModalVisible?.(false);
-    setSelectedStatus(item.value);
+    setSelectedStatus(tempSelectedStatus);
     setStatusModalVisible(false);
+    onSubmitDelivery?.(tempSelectedStatus);
   };
 
   const renderStatusItem = ({item}) => (
-    <TouchableOpacity style={styles.item} onPress={() => handleStatusPress(item)}>
+    <TouchableOpacity
+      style={styles.item}
+      onPress={() => setTempSelectedStatus(item.value)}>
       <Text style={styles.itemText}>{item.label}</Text>
+      <Icon
+        name={tempSelectedStatus === item.value ? 'checkcircle' : 'checkcircleo'}
+        size={20}
+        color={tempSelectedStatus === item.value ? '#111827' : '#9CA3AF'}
+      />
     </TouchableOpacity>
   );
 
@@ -191,6 +204,7 @@ const OrderStatus = ({
                     }
                     onOrderChosen?.(selectedOrderInModal);
                     setOrderModalVisible(false);
+                    setTempSelectedStatus(selectedStatus || '');
                     setStatusModalVisible(true);
                   }}>
                   <Text style={styles.modalContinueButtonText}>Continue</Text>
@@ -216,6 +230,23 @@ const OrderStatus = ({
                   renderItem={renderStatusItem}
                   keyExtractor={item => item.value}
                 />
+                <TouchableOpacity
+                  style={[
+                    styles.modalContinueButton,
+                    !tempSelectedStatus && styles.modalContinueButtonDisabled,
+                  ]}
+                  activeOpacity={0.85}
+                  disabled={!tempSelectedStatus}
+                  onPress={handleStatusContinue}>
+                  <Text style={styles.modalContinueButtonText}>
+                    {tempSelectedStatus === DELIVERED_STATUS
+                      ? 'Continue'
+                      : 'Submit'}
+                  </Text>
+                </TouchableOpacity>
+                {statusSubmitError ? (
+                  <Text style={styles.modalErrorText}>{statusSubmitError}</Text>
+                ) : null}
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -276,6 +307,9 @@ const OrderStatus = ({
                   onPress={() => onSubmitDelivery?.()}>
                   <Text style={styles.modalContinueButtonText}>Submit delivery</Text>
                 </TouchableOpacity>
+                {statusSubmitError ? (
+                  <Text style={styles.modalErrorText}>{statusSubmitError}</Text>
+                ) : null}
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -384,6 +418,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  modalErrorText: {
+    color: '#c62828',
+    fontSize: 13,
+    marginTop: 8,
+  },
   orderIdText: {
     fontSize: 14,
     color: '#111827',
@@ -399,6 +438,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   itemText: {
     fontSize: 15,

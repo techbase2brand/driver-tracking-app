@@ -1,6 +1,5 @@
-import {View, Text} from 'react-native';
 import React, {useState, useEffect} from 'react';
-import {useDispatch, useSelector} from 'react-redux';
+import {useSelector} from 'react-redux';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import BottomTabNavigator from './BottomTabNavigator';
 import AuthNavigator from './AuthNavigator';
@@ -12,6 +11,9 @@ const AppNavigator = () => {
   /** Login payload is stored as root `email`: `{ driver: { email }, ... }` or API may add `token`. */
   const session = useSelector(state => state?.email);
   const isLoggedIn = Boolean(session?.driver?.email || session?.token);
+  const navigationKey = isLoggedIn
+    ? `app-${String(session?.loginSessionAt || 'active-session')}`
+    : 'auth';
 
   if (__DEV__) {
     console.log('Auth session email:', session?.driver?.email ?? '(none)');
@@ -55,8 +57,12 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
-      {isLoggedIn ? <BottomTabNavigator /> : <AuthNavigator />}
+    <NavigationContainer key={navigationKey}>
+      {isLoggedIn ? (
+        <BottomTabNavigator />
+      ) : (
+        <AuthNavigator />
+      )}
     </NavigationContainer>
   );
 };

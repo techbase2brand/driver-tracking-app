@@ -1,11 +1,14 @@
 export const GOOGLE_MAPS_APIKEY = 'AIzaSyBEQp-ZFMYZjsTNyximu2pAifQ9EWA4W3M';
 export const BACKEND_URL = 'https://foam-writers-ruled-eliminate.trycloudflare.com/';
+export const API_BASE_URL =
+  'https://ear-fashion-according-designers.trycloudflare.com/api/';
 
 /**
  * Client demo: no backend required. Set to false to use real API calls again
  * (LoginScreen / HomeScreen / OrderHistoryScreen / DriverScreen).
  */
-export const USE_STATIC_DEMO_MODE = true;
+// export const USE_STATIC_DEMO_MODE = true;
+export const USE_STATIC_DEMO_MODE = false;
 
 export const STATIC_DEMO_EMAIL = 'driver@yopmail.com';
 export const STATIC_DEMO_PASSWORD = '12345678';
@@ -47,15 +50,10 @@ export const STATIC_DEMO_ORDERS_RESPONSE = {
   ],
 };
 export const statuses = [
-  { label: 'Attempted Delivery', value: 'attempted_delivery' },
-  { label: 'Confirmed', value: 'confirmed' },
-  { label: 'Delivered', value: 'delivered' },
-  { label: 'Failure', value: 'failure' },
-  { label: 'In Transit', value: 'in_transit' },
-  { label: 'Label Printed', value: 'label_printed' },
-  { label: 'Label Purchased', value: 'label_purchased' },
-  { label: 'Out For Delivery', value: 'out_for_delivery' },
-  { label: 'Ready For Pickup', value: 'ready_for_pickup' },
+  { label: 'Picked Up', value: 'PICKED_UP' },
+  { label: 'In Transit', value: 'IN_TRANSIT' },
+  { label: 'Delivered', value: 'DELIVERED' },
+  { label: 'Failed', value: 'FAILED' },
 ];
 
 export const orders = [

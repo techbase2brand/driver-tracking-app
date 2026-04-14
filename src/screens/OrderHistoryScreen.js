@@ -1,60 +1,82 @@
 // OrderHistory.js
-import React, {useEffect, useState} from 'react';
+import React, {useCallback, useState} from 'react';
 import {View, FlatList, StyleSheet, Text, ActivityIndicator} from 'react-native';
+import {useFocusEffect} from '@react-navigation/native';
 import OrderItem from '../screensComponents/OrderItem';
 import {useSelector} from 'react-redux';
-import {
-  BACKEND_URL,
-  USE_STATIC_DEMO_MODE,
-  STATIC_DEMO_ORDERS_RESPONSE,
-} from '../constant/Constant';
+import {API_BASE_URL} from '../constant/Constant';
 
 const OrderHistoryScreen = () => {
   const email = useSelector(state => state?.email?.driver?.email);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState();
-  console.log('orders>>>>', orders?.getorderCreateData);
+  const [ordersError, setOrdersError] = useState('');
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async ({isRefresh = false} = {}) => {
     try {
-      setLoading(true);
-      if (USE_STATIC_DEMO_MODE) {
-        setOrders(STATIC_DEMO_ORDERS_RESPONSE);
-        return;
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
-      const response = await fetch(`${BACKEND_URL}/api/driverOrders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      setOrdersError('');
+      const response = await fetch(
+        `${API_BASE_URL}/driverAllOrders?email=${encodeURIComponent(email || '')}`,
+        {
+          method: 'GET',
         },
-        body: JSON.stringify({
-          email: email,
-        }),
-      });
+      );
       const data = await response.json();
-      console.log('data', data?.getorderCreateData);
+      console.log('OrderHistory API status:', response.status);
+      console.log('OrderHistory API response:', data);
+      if (!response.ok) {
+        throw new Error('Failed to fetch order history');
+      }
       setOrders(data);
     } catch (error) {
       console.error('Error fetching orders:', error);
+      setOrdersError('Unable to load orders. Please try again.');
     } finally {
-      setLoading(false);
+      if (isRefresh) {
+        setRefreshing(false);
+      } else {
+        setLoading(false);
+      }
     }
+  }, [email]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [fetchOrders]),
+  );
+
+  const handleRefresh = () => {
+    fetchOrders({isRefresh: true});
   };
 
-  useEffect(() => {
-    fetchOrders();
-  }, [email]);
+  const historyOrders = [
+    ...(orders?.pendingOrders || []),
+    ...(orders?.deliveredOrders || []),
+  ];
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Order History</Text>
       <Text style={styles.subtitle}>Track all delivered and active orders</Text>
+      {/* {ordersError ? <Text style={styles.errorText}>{ordersError}</Text> : null} */}
       {loading ? (
         <ActivityIndicator size="large" color="#1F2937" style={styles.loader} />
-      ) : orders?.getorderCreateData?.length > 0 ? (
+      ) : historyOrders.length > 0 ? (
         <FlatList
-          data={orders?.getorderCreateData}
-          keyExtractor={item => `${item?.id || item?.orderCreateData_id}`}
+          data={historyOrders}
+          keyExtractor={item =>
+            `${item?.id || item?.orderNumber || item?.orderCreateData_id}`
+          }
           renderItem={({item}) => <OrderItem order={item} />}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -88,6 +110,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     marginBottom: 14,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    marginBottom: 8,
   },
   loader: {
     marginTop: 120,

@@ -1,4 +1,4 @@
-import React, {useMemo, useState} from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,9 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
@@ -29,7 +29,7 @@ const sortNearestFirst = (orders, pickup) => {
   }
   const remaining = [...orders];
   const sorted = [];
-  let fromPoint = {...pickup};
+  let fromPoint = { ...pickup };
 
   while (remaining.length > 0) {
     let nearestIndex = 0;
@@ -54,9 +54,9 @@ const sortNearestFirst = (orders, pickup) => {
   return sorted;
 };
 
-const RoutePlannerScreen = ({route, navigation}) => {
+const RoutePlannerScreen = ({ route, navigation }) => {
   const orders = route?.params?.orders || [];
-  const pickup = route?.params?.pickup || {latitude: 0, longitude: 0};
+  const pickup = route?.params?.pickup || { latitude: 0, longitude: 0 };
   const initialIds = route?.params?.selectedOrderIds || [];
   const [selectedOrderIds, setSelectedOrderIds] = useState(initialIds);
 
@@ -97,7 +97,7 @@ const RoutePlannerScreen = ({route, navigation}) => {
         keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-        renderItem={({item}) => {
+        renderItem={({ item }) => {
           const selected = selectedOrderIds.includes(item.id);
           return (
             <TouchableOpacity
@@ -118,18 +118,22 @@ const RoutePlannerScreen = ({route, navigation}) => {
         }}
       />
 
-      <Text style={styles.previewTitle}>Optimized Stops</Text>
-      {optimizedStops.length ? (
-        optimizedStops.map((stop, index) => (
-          <View key={`preview-${stop.id}`} style={styles.previewItem}>
-            <Text style={styles.previewText}>
-              Stop {index + 1}: #{stop.orderCreateData_id}
-            </Text>
+      <View style={styles.previewSection}>
+        <Text style={styles.previewTitle}>Optimized Stops</Text>
+        {optimizedStops.length ? (
+          <View style={styles.previewGrid}>
+            {optimizedStops.map((stop, index) => (
+              <View key={`preview-${stop.id}`} style={styles.previewItem}>
+                <Text style={styles.previewText}>
+                  Stop {index + 1}: #{stop.orderCreateData_id}
+                </Text>
+              </View>
+            ))}
           </View>
-        ))
-      ) : (
-        <Text style={styles.emptyText}>No stops selected.</Text>
-      )}
+        ) : (
+          <Text style={styles.emptyText}>No stops selected.</Text>
+        )}
+      </View>
 
       <TouchableOpacity style={styles.cta} onPress={applyPlan} activeOpacity={0.9}>
         <Text style={styles.ctaText}>Use This Plan</Text>
@@ -142,14 +146,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
-    padding: 16,
+    // padding: 16,
   },
   title: {
+    paddingHorizontal: 8,
+    paddingTop:8,
     fontSize: 24,
     fontWeight: '700',
     color: '#111827',
   },
   subtitle: {
+    paddingHorizontal: 8,
     marginTop: 4,
     marginBottom: 12,
     fontSize: 13,
@@ -157,6 +164,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 8,
+    paddingHorizontal: 8,
   },
   orderRow: {
     backgroundColor: '#FFFFFF',
@@ -201,37 +209,55 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBBC05',
   },
   previewTitle: {
-    marginTop: 8,
+    marginTop: 0,
     marginBottom: 8,
     fontSize: 14,
     fontWeight: '700',
     color: '#111827',
   },
+  previewSection: {
+    // marginTop: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 10,
+    paddingHorizontal: 8,
+  },
   previewItem: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 5,
     marginBottom: 6,
     backgroundColor: '#FFFFFF',
+    width: '30%',
+    marginRight: '2.5%',
+  },
+  previewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-start',
+    paddingHorizontal: 8,
   },
   previewText: {
     fontSize: 12,
     color: '#374151',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   emptyText: {
     fontSize: 12,
     color: '#6B7280',
     marginBottom: 8,
+    paddingHorizontal: 8,
   },
   cta: {
     backgroundColor: '#111827',
     borderRadius: 10,
     alignItems: 'center',
     paddingVertical: 12,
-    marginTop: 10,
+    marginVertical: 10,
+    marginHorizontal: 8,
   },
   ctaText: {
     color: '#FFFFFF',

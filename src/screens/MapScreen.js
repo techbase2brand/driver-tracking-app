@@ -4,14 +4,23 @@ import MapView, {Marker, PROVIDER_GOOGLE} from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import {GOOGLE_MAPS_APIKEY} from '../constant/Constant';
 
-const FALLBACK_PICKUP = {
-  latitude: 30.7046,
-  longitude: 76.7179,
-};
+const hasLatLng = point =>
+  Boolean(
+    point &&
+      Number.isFinite(Number(point.latitude)) &&
+      Number.isFinite(Number(point.longitude)),
+  );
+
+const toRegion = point => ({
+  latitude: Number(point.latitude),
+  longitude: Number(point.longitude),
+  latitudeDelta: 0.0822,
+  longitudeDelta: 0.0421,
+});
 
 const MapScreen = ({route}) => {
   const mapRef = useRef();
-  const pickup = route?.params?.pickup || FALLBACK_PICKUP;
+  const pickup = route?.params?.pickup || null;
   const routeOrders = route?.params?.routeOrders || [];
   const currentOrderIndex = route?.params?.currentOrderIndex || 0;
 
@@ -26,6 +35,18 @@ const MapScreen = ({route}) => {
   const hasValidLegDestination = Boolean(
     activeLegDestination?.latitude && activeLegDestination?.longitude,
   );
+  const hasValidPickup = hasLatLng(pickup);
+  const initialMapPoint = hasValidPickup
+    ? pickup
+    : activeLegDestination || remainingRouteOrders[0]?.destination;
+  const mapInitialRegion = hasLatLng(initialMapPoint)
+    ? toRegion(initialMapPoint)
+    : {
+        latitude: 20.5937,
+        longitude: 78.9629,
+        latitudeDelta: 18,
+        longitudeDelta: 18,
+      };
 
   return (
     <View style={styles.container}>
@@ -33,13 +54,8 @@ const MapScreen = ({route}) => {
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        initialRegion={{
-          latitude: pickup.latitude,
-          longitude: pickup.longitude,
-          latitudeDelta: 0.0822,
-          longitudeDelta: 0.0421,
-        }}>
-        <Marker coordinate={pickup} title="You are here" />
+        initialRegion={mapInitialRegion}>
+        {hasValidPickup ? <Marker coordinate={pickup} title="You are here" /> : null}
         {remainingRouteOrders.map((order, index) => (
           <Marker
             key={`map-stop-${order?.id || index}`}
@@ -53,7 +69,7 @@ const MapScreen = ({route}) => {
             pinColor={index === 0 ? '#FBBC05' : '#9CA3AF'}
           />
         ))}
-        {hasValidLegDestination ? (
+        {hasValidLegDestination && hasValidPickup ? (
           <MapViewDirections
             key={`map-leg-${activeOrder?.id}-${currentOrderIndex}`}
             origin={pickup}

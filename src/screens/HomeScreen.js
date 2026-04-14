@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -19,14 +19,7 @@ import MapViewDirections from 'react-native-maps-directions';
 import Geolocation from 'react-native-geolocation-service';
 import Button from '../shared/Button';
 import OrderStatus from '../screensComponents/OrderStatus';
-import {
-  BACKEND_URL,
-  statuses,
-  GOOGLE_MAPS_APIKEY,
-  USE_STATIC_DEMO_MODE,
-  STATIC_DEMO_DESTINATION,
-  STATIC_DEMO_ORDERS_RESPONSE,
-} from '../constant/Constant';
+import {API_BASE_URL, statuses, GOOGLE_MAPS_APIKEY} from '../constant/Constant';
 import {useSelector} from 'react-redux';
 import {
   ensureAndroidLocationPermission,
@@ -34,32 +27,33 @@ import {
   getCurrentPositionWithFallback,
   defaultWatchOptions,
 } from '../utils/locationHelpers';
+import {useFocusEffect} from '@react-navigation/native';
 
-const CUSTOMER_DETAILS = {
-  name: 'John Doe',
-  address: '263 Main St, Springfield',
-  phone: '1234567890',
-  orderName: 'Demo order',
-  orderId: '#123456',
-  image:
-    'https://images.unsplash.com/photo-1485962398705-ef6a13c41e8f?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fGZvb2QlMjBpbWdlc3xlbnwwfHwwfHx8MA%3D%3D',
-  orderStatus: 'Ready',
-};
+
 
 const {width, height} = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 2.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
-const DESTINATION = {
-  latitude: STATIC_DEMO_DESTINATION.latitude,
-  longitude: STATIC_DEMO_DESTINATION.longitude,
-};
-
 const toNumber = value => {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
 };
+
+const hasLatLng = point =>
+  Boolean(
+    point &&
+      Number.isFinite(Number(point.latitude)) &&
+      Number.isFinite(Number(point.longitude)),
+  );
+
+const toMapRegion = point => ({
+  latitude: Number(point.latitude),
+  longitude: Number(point.longitude),
+  latitudeDelta: LATITUDE_DELTA,
+  longitudeDelta: LONGITUDE_DELTA,
+});
 
 const resolveOrderAddress = billingAddress => {
   if (!billingAddress || typeof billingAddress !== 'object') {
@@ -113,12 +107,7 @@ const resolveOrderPhone = billingAddress => {
 const HomeScreen = ({navigation, route}) => {
   const mapRef = useRef();
   const email = useSelector(state => state?.email?.driver?.email);
-  const [pickup, setPickup] = useState({
-    latitude: 30.7046,
-    longitude: 76.7179,
-    latitudeDelta: LATITUDE_DELTA,
-    longitudeDelta: LONGITUDE_DELTA,
-  });
+  const [pickup, setPickup] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [orders, setOrders] = useState();
   const [mapReady, setMapReady] = useState(false);
@@ -127,6 +116,7 @@ const HomeScreen = ({navigation, route}) => {
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
   const [geocodedByAddress, setGeocodedByAddress] = useState({});
   const [statusTargetOrderId, setStatusTargetOrderId] = useState(null);
+  const [deliveryEtaText, setDeliveryEtaText] = useState('Calculating...');
   const [deliveryProofModalVisible, setDeliveryProofModalVisible] =
     useState(false);
   const [deliveryProofUri, setDeliveryProofUri] = useState(null);
@@ -146,7 +136,7 @@ const HomeScreen = ({navigation, route}) => {
   };
 
   useEffect(() => {
-    if (selectedStatus !== 'delivered') {
+    if (selectedStatus !== 'DELIVERED') {
       setDeliveryProofUri(null);
       setDeliveryProofBase64(null);
       setDeliveryProofMimeType(null);
@@ -169,15 +159,9 @@ const HomeScreen = ({navigation, route}) => {
     return distance;
   };
 
-  const fetchOrders = async () => {
-    if (USE_STATIC_DEMO_MODE) {
-      const data = STATIC_DEMO_ORDERS_RESPONSE;
-      setOrders(data);
-      return;
-    }
-
+  const fetchOrders = useCallback(async () => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/driverOrders`, {
+      const response = await fetch(`${API_BASE_URL}/driverOrders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,16 +171,19 @@ const HomeScreen = ({navigation, route}) => {
         }),
       });
       const data = await response.json();
-      console.log('data', data);
+      console.log('Home orders API status:', response.status);
+      console.log('Home orders API response:', data);
       setOrders(data);
     } catch (error) {
       console.error('Error fetching orders:', error);
     }
-  };
-
-  useEffect(() => {
-    fetchOrders();
   }, [email]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchOrders();
+    }, [fetchOrders]),
+  );
 
   useEffect(() => {
     setCurrentOrderIndex(0);
@@ -256,15 +243,18 @@ const HomeScreen = ({navigation, route}) => {
           longitudeDelta: LONGITUDE_DELTA,
         });
 
-        const distance = calculateDistance(
-          latitude,
-          longitude,
-          DESTINATION.latitude,
-          DESTINATION.longitude,
-        );
-        if (distance < 0.1 && !nearbyAlertSent.current) {
-          nearbyAlertSent.current = true;
-          Alert.alert('You are near the destination');
+        const activeTarget = currentOrder?.destination;
+        if (hasLatLng(activeTarget)) {
+          const distance = calculateDistance(
+            latitude,
+            longitude,
+            activeTarget.latitude,
+            activeTarget.longitude,
+          );
+          if (distance < 0.1 && !nearbyAlertSent.current) {
+            nearbyAlertSent.current = true;
+            Alert.alert('You are near the destination');
+          }
         }
       };
 
@@ -301,7 +291,7 @@ const HomeScreen = ({navigation, route}) => {
       }
       Geolocation.stopObserving();
     };
-  }, []);
+  }, [currentOrder]);
 
   const openDialPad = value => {
     console.log('value', value);
@@ -330,17 +320,13 @@ const HomeScreen = ({navigation, route}) => {
           toNumber(order?.latitude) ||
           toNumber(order?.lat) ||
           toNumber(parsedBillingAddress?.latitude) ||
-          toNumber(parsedBillingAddress?.lat) ||
-          STATIC_DEMO_DESTINATION.latitude +
-            ((order?.orderCreateData_id?.length || 1) % 3) * 0.008,
+          toNumber(parsedBillingAddress?.lat),
         longitude:
           geocodedCoordinate?.longitude ||
           toNumber(order?.longitude) ||
           toNumber(order?.lng) ||
           toNumber(parsedBillingAddress?.longitude) ||
-          toNumber(parsedBillingAddress?.lng) ||
-          STATIC_DEMO_DESTINATION.longitude +
-            ((order?.orderCreateData_id?.length || 1) % 4) * 0.006,
+          toNumber(parsedBillingAddress?.lng),
       },
     };
   });
@@ -405,12 +391,15 @@ const HomeScreen = ({navigation, route}) => {
     };
   }, [orders, geocodedByAddress]);
 
-  const selectedOrders = parsedOrders.filter(order =>
-    selectedOrderIds.includes(order?.id),
+  const selectedOrders = parsedOrders.filter(
+    order => selectedOrderIds.includes(order?.id) && hasLatLng(order?.destination),
   );
 
   const sortNearestFirst = ordersList => {
     if (ordersList.length <= 1) {
+      return ordersList;
+    }
+    if (!hasLatLng(pickup)) {
       return ordersList;
     }
     const remaining = [...ordersList];
@@ -455,7 +444,32 @@ const HomeScreen = ({navigation, route}) => {
   /** One leg at a time: path only to the active (first remaining) stop — not full multi-waypoint route */
   const activeLegDestination = currentOrder?.destination || null;
 
+  useEffect(() => {
+    if (!activeLegDestination) {
+      setDeliveryEtaText('No active route');
+    }
+  }, [activeLegDestination]);
+
+  const zoomToPickupMarker = useCallback(() => {
+    if (!pickupLatLng || !mapRef.current) {
+      return;
+    }
+    mapRef.current.animateToRegion(
+      {
+        latitude: pickupLatLng.latitude,
+        longitude: pickupLatLng.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      450,
+    );
+  }, [pickupLatLng]);
+
   const openRoutePlanner = () => {
+    if (!hasLatLng(pickup)) {
+      Alert.alert('Location unavailable', 'Wait for GPS location and try again.');
+      return;
+    }
     navigation.navigate('RoutePlannerScreen', {
       orders: parsedOrders,
       pickup: pickupLatLng,
@@ -503,6 +517,10 @@ const HomeScreen = ({navigation, route}) => {
   };
 
   const openPlannedMap = () => {
+    if (!hasLatLng(pickup)) {
+      Alert.alert('Location unavailable', 'Wait for GPS location and try again.');
+      return;
+    }
     navigation.navigate('MapScreen', {
       pickup: pickupLatLng,
       routeOrders,
@@ -510,7 +528,8 @@ const HomeScreen = ({navigation, route}) => {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = statusOverride => {
+    const statusToSubmit = statusOverride || selectedStatus;
     if (!statusTargetOrder) {
       setStatusSubmitError('Select order for status update first.');
       return;
@@ -519,43 +538,31 @@ const HomeScreen = ({navigation, route}) => {
       setStatusSubmitError('Please select at least one order first.');
       return;
     }
-    if (selectedStatus) {
+    if (statusToSubmit) {
       setStatusSubmitError('');
-      if (selectedStatus === 'delivered' && !deliveryProofBase64) {
+      if (statusToSubmit === 'DELIVERED' && !deliveryProofBase64) {
         setStatusSubmitError(
           'Take a delivery proof photo with the camera before submitting.',
         );
         return;
       }
-      if (USE_STATIC_DEMO_MODE) {
-        if (__DEV__) {
-          console.log('deliveryStatus (local)', {
-            status: selectedStatus,
-            orderId: statusTargetOrder?.orderCreateData_id,
-            hasDeliveryProof: selectedStatus === 'delivered',
-          });
-        }
-        setDeliveryProofModalVisible(false);
-        setDeliveryProofUri(null);
-        setDeliveryProofBase64(null);
-        setDeliveryProofMimeType(null);
-        moveToNextStop(statusTargetOrder?.id);
-        return;
-      }
-
       const requestBody = {
-        status: selectedStatus,
+        status: statusToSubmit,
         trackingUrl: 'https://google.com',
         trackingNumber: 123312423433,
         orderId: statusTargetOrder?.orderCreateData_id,
       };
-      if (selectedStatus === 'delivered' && deliveryProofBase64) {
+      if (statusToSubmit === 'DELIVERED' && deliveryProofBase64) {
         const mime = deliveryProofMimeType || 'image/jpeg';
+        requestBody.proofOfDelivery = deliveryProofBase64;
+        requestBody.proofOfDeliveryMimeType = mime;
+        requestBody.proofOfDeliveryImageUrl = `data:${mime};base64,${deliveryProofBase64}`;
         requestBody.deliveryProofBase64 = deliveryProofBase64;
         requestBody.deliveryProofMimeType = mime;
         requestBody.deliveryProofImageUrl = `data:${mime};base64,${deliveryProofBase64}`;
       }
-      fetch(`${BACKEND_URL}/api/deliveryStatus`, {
+      console.log('deliveryStatus requestBody:', requestBody);
+      fetch(`${API_BASE_URL}/deliveryStatus`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -574,7 +581,11 @@ const HomeScreen = ({navigation, route}) => {
           setDeliveryProofUri(null);
           setDeliveryProofBase64(null);
           setDeliveryProofMimeType(null);
-          moveToNextStop(statusTargetOrder?.id);
+          if (statusToSubmit === 'DELIVERED') {
+            moveToNextStop(statusTargetOrder?.id);
+          } else {
+            Alert.alert('Success', 'Order status updated successfully.');
+          }
         })
         .catch(error => {
           console.error('Error updating status:', error);
@@ -584,10 +595,30 @@ const HomeScreen = ({navigation, route}) => {
     }
   };
 
-  const pickupLatLng = {
-    latitude: pickup.latitude,
-    longitude: pickup.longitude,
-  };
+  const pickupLatLng = hasLatLng(pickup)
+    ? {
+        latitude: pickup.latitude,
+        longitude: pickup.longitude,
+      }
+    : null;
+  const initialMapPoint =
+    pickupLatLng || activeLegDestination || remainingRouteOrders[0]?.destination;
+  const mapInitialRegion = hasLatLng(initialMapPoint)
+    ? toMapRegion(initialMapPoint)
+    : {
+        latitude: 20.5937,
+        longitude: 78.9629,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      };
+  const pickupFocusedRegion = pickupLatLng
+    ? {
+        latitude: pickupLatLng.latitude,
+        longitude: pickupLatLng.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }
+    : mapInitialRegion;
 
   return (
     <View style={styles.screenRoot}>
@@ -595,14 +626,21 @@ const HomeScreen = ({navigation, route}) => {
       <View style={styles.mapSection}>
         <MapView
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-          initialRegion={pickup}
+          region={pickupFocusedRegion}
           ref={mapRef}
           style={styles.map}
           scrollEnabled={false}
           rotateEnabled={false}
           pitchEnabled={false}
           onMapReady={() => setMapReady(true)}>
-          <Marker coordinate={pickupLatLng} title="You are here" />
+          {pickupLatLng ? (
+            <Marker
+              coordinate={pickupLatLng}
+              title="You are here"
+              pinColor="#FF0000"
+              onPress={zoomToPickupMarker}
+            />
+          ) : null}
           {remainingRouteOrders.map((routeOrder, index) => (
             <Marker
               key={`${routeOrder?.id}-${index}`}
@@ -616,7 +654,7 @@ const HomeScreen = ({navigation, route}) => {
               pinColor={index === 0 ? '#FBBC05' : '#9CA3AF'}
             />
           ))}
-          {mapReady && activeLegDestination ? (
+          {mapReady && activeLegDestination && pickupLatLng ? (
             <MapViewDirections
               key={`leg-${currentOrder?.id}-${boundedCurrentOrderIndex}`}
               origin={pickupLatLng}
@@ -627,21 +665,21 @@ const HomeScreen = ({navigation, route}) => {
               onReady={result => {
                 console.log('Directions distance', result.distance);
                 console.log('Directions duration', result.duration.toFixed(1));
+                setDeliveryEtaText(
+                  `Estimated ${Math.max(
+                    1,
+                    Math.round(Number(result?.duration || 0)),
+                  )} min`,
+                );
                 if (mapRef.current) {
-                  mapRef.current.fitToCoordinates(result.coordinates, {
-                    edgePadding: {
-                      right: 40,
-                      bottom: 300,
-                      left: 30,
-                      top: 250,
-                    },
-                  });
+                  zoomToPickupMarker();
                 } else {
                   console.warn('Map reference is not set');
                 }
               }}
               onError={errorMessage => {
                 console.error('Directions error: ', errorMessage);
+                setDeliveryEtaText('Unable to estimate');
               }}
             />
           ) : null}
@@ -690,7 +728,7 @@ const HomeScreen = ({navigation, route}) => {
               </View>
               <View style={styles.infoContent}>
                 <Text style={styles.infoLabel}>Your Delivery Time</Text>
-                <Text style={styles.infoValue}>Estimated 8:30 - 9:15 PM</Text>
+                <Text style={styles.infoValue}>{deliveryEtaText}</Text>
               </View>
             </View>
             <View style={styles.infoRow}>
@@ -730,6 +768,7 @@ const HomeScreen = ({navigation, route}) => {
             setSelectedStatus={setSelectedStatus}
             statuses={statuses}
             ordersForStatus={routeOrders}
+            statusSubmitError={statusSubmitError}
             selectedOrderId={statusTargetOrderId}
             currentOrderId={currentOrder?.id}
             selectedOrderLabel={
@@ -750,10 +789,6 @@ const HomeScreen = ({navigation, route}) => {
             onDeliveryProofChange={handleDeliveryProofChange}
             onSubmitDelivery={handleSubmit}
           />
-          {statusSubmitError ? (
-            <Text style={styles.statusSubmitError}>{statusSubmitError}</Text>
-          ) : null}
-          <Button onloginClick={handleSubmit} title="Submit" />
           {routeOrders.length > 0 ? (
             <View style={styles.activeOrdersBelowSubmit}>
               <Text style={styles.activeOrdersBelowTitle}>Active Orders</Text>

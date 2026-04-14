@@ -1,5 +1,5 @@
 
-import React, {useState, useEffect} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,68 +8,196 @@ import {
   Image,
   Text,
   TouchableOpacity,
-  Alert,
+  ActivityIndicator,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import {launchImageLibrary} from 'react-native-image-picker';
+import { launchImageLibrary } from 'react-native-image-picker';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Button from '../shared/Button';
-import {useSelector} from 'react-redux';
-import {useDispatch} from 'react-redux';
-import {logout} from '../redux/action';
+import { useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
+import { logout } from '../redux/action';
+import { API_BASE_URL } from '../constant/Constant';
+import {useFocusEffect} from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 
-  
 
-const ProfileScreen = ({navigation}) => {
+
+const ProfileScreen = () => {
   const dispatch = useDispatch();
   const DriverDetail = useSelector(state => state?.email);
+  const sessionEmail = DriverDetail?.driver?.email || '';
   console.log('DriverDetail>>>', DriverDetail);
   const [name, setName] = useState(DriverDetail?.driver?.name || 'John Doe');
-  const [email] = useState(DriverDetail?.driver?.email || 'john.doe@example.com');
+  const [email, setEmail] = useState(
+    DriverDetail?.driver?.email || 'john.doe@example.com',
+  );
   const [phoneNumber, setPhoneNumber] = useState(
     DriverDetail?.driver?.phone || '+1 234 567 890',
   );
-  const [vehicleNumber, setVehicleNumber] = useState('XYZ 1234');
-  const [documentNumber, setDocumentNumber] = useState('DOC123456');
+  const [vehicleNumber, setVehicleNumber] = useState(
+    DriverDetail?.driver?.vehicleNo ||
+      DriverDetail?.driver?.vehicleNumber ||
+      DriverDetail?.driver?.vehicle_number ||
+      DriverDetail?.driver?.shop ||
+      'N/A',
+  );
+  const [documentNumber, setDocumentNumber] = useState(
+    DriverDetail?.driver?.licenseNo ||
+      DriverDetail?.driver?.licenseNumber ||
+      DriverDetail?.driver?.license_no ||
+      DriverDetail?.driver?.id ||
+      'N/A',
+  );
   const [profileImage, setProfileImage] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+
   const handleChooseProfilePhoto = () => {
-    launchImageLibrary({mediaType: 'photo'}, response => {
+    launchImageLibrary({ mediaType: 'photo' }, response => {
       if (response.assets && response.assets.length > 0) {
         setProfileImage(response.assets[0].uri);
       }
     });
   };
 
+  const performLogout = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/driverLogout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: sessionEmail,
+        }),
+      });
+      const data = await response.json();
+      console.log('Logout API status:', response.status);
+      console.log('Logout API response:', data);
+    } catch (error) {
+      console.log('Logout API failed:', error);
+    } finally {
+      await AsyncStorage.clear();
+      dispatch(logout());
+    }
+  };
+
   const handleLogout = () => {
-    dispatch(logout());
-    console.log('working>>>>');
-    navigation.navigate('LoginScreen');
+    setLogoutModalVisible(true);
   };
 
   const handleUpdateProfile = () => {
     // Handle profile update logic here
     setIsEditing(false);
-    Alert.alert('Profile updated successfully');
   };
 
   useEffect(() => {
     setIsEditing(false);
   }, []);
 
+  const fetchDriverInfo = useCallback(async () => {
+    if (!sessionEmail) {
+      return;
+    }
+
+    try {
+      setIsProfileLoading(true);
+      setProfileError('');
+      const response = await fetch(`${API_BASE_URL}/driverInfo`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: sessionEmail,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+
+      const driverData =
+        data?.driver || data?.data?.driver || data?.data || data;
+
+      setName(driverData?.name || DriverDetail?.driver?.name || 'John Doe');
+      setEmail(
+        driverData?.email || DriverDetail?.driver?.email || sessionEmail,
+      );
+      setPhoneNumber(
+        driverData?.phone || DriverDetail?.driver?.phone || '+1 234 567 890',
+      );
+      setVehicleNumber(
+        driverData?.vehicleNo ||
+          driverData?.vehicleNumber ||
+          driverData?.vehicle_number ||
+          DriverDetail?.driver?.vehicleNo ||
+          DriverDetail?.driver?.vehicleNumber ||
+          DriverDetail?.driver?.vehicle_number ||
+          driverData?.shop ||
+          DriverDetail?.driver?.shop ||
+          'N/A',
+      );
+      setDocumentNumber(
+        driverData?.licenseNo ||
+          driverData?.licenseNumber ||
+          driverData?.license_no ||
+          DriverDetail?.driver?.licenseNo ||
+          DriverDetail?.driver?.licenseNumber ||
+          DriverDetail?.driver?.license_no ||
+          driverData?.id ||
+          DriverDetail?.driver?.id ||
+          'N/A',
+      );
+      if (driverData?.licenseImage || driverData?.profileImage) {
+        setProfileImage(driverData?.licenseImage || driverData?.profileImage);
+      }
+    } catch (error) {
+      if (__DEV__) {
+        console.log('Profile fetch failed:', error);
+      }
+      setProfileError('Unable to load profile details. Please try again.');
+    } finally {
+      setIsProfileLoading(false);
+    }
+  }, [sessionEmail, DriverDetail?.driver?.email, DriverDetail?.driver?.id, DriverDetail?.driver?.name, DriverDetail?.driver?.phone, DriverDetail?.driver?.shop, DriverDetail?.driver?.vehicleNo, DriverDetail?.driver?.vehicleNumber, DriverDetail?.driver?.vehicle_number, DriverDetail?.driver?.licenseNo, DriverDetail?.driver?.licenseNumber, DriverDetail?.driver?.license_no]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDriverInfo();
+    }, [fetchDriverInfo]),
+  );
+
   const getInitials = name => {
     return name ? name.charAt(0).toUpperCase() : '';
   };
 
-  const FallbackAvatar = ({name}) => (
+  const FallbackAvatar = ({ name }) => (
     <View style={styles.fallbackAvatar}>
       <Text style={styles.fallbackAvatarText}>{getInitials(name)}</Text>
     </View>
   );
+
+  if (isProfileLoading && !isEditing) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#111827" />
+        <Text style={styles.loaderText}>Loading profile...</Text>
+      </View>
+    );
+  }
+
   return (
+    <>
     <ScrollView
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}>
@@ -99,7 +227,7 @@ const ProfileScreen = ({navigation}) => {
             /> */}
             {profileImage ? (
               <Image
-                source={{uri: profileImage}}
+                source={{ uri: profileImage }}
                 style={styles.avatar}
               />
             ) : (
@@ -150,7 +278,7 @@ const ProfileScreen = ({navigation}) => {
               onChangeText={setDocumentNumber}
             />
           </View>
-     
+
           <Button onloginClick={handleUpdateProfile} title="Update Profile" />
         </>
       ) : (
@@ -166,22 +294,25 @@ const ProfileScreen = ({navigation}) => {
             style={styles.avatar}
           /> */}
           {profileImage ? (
-              <Image
-                source={{uri: profileImage}}
-                style={styles.avatar}
-              />
-            ) : (
-              <FallbackAvatar name={name} />
-            )}
+            <Image
+              source={{ uri: profileImage }}
+              style={styles.avatar}
+            />
+          ) : (
+            <FallbackAvatar name={name} />
+          )}
           <View style={styles.profileHeroCard}>
-            <Text style={styles.profileName}>{name}</Text>
-            <Text style={styles.memberText}>Member Since February 2024</Text>
+            <Text style={styles.profileName}>{name ? name.charAt(0).toUpperCase() + name.slice(1) : ''}</Text>
+            {/* <Text style={styles.memberText}>Member Since February 2024</Text> */}
           </View>
 
           <View style={styles.detailsGroup}>
+
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Name</Text>
-              <Text style={styles.value}>{name}</Text>
+              <Text style={styles.value}>
+                {name ? name.charAt(0).toUpperCase() + name.slice(1) : ''}
+              </Text>
             </View>
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>Email</Text>
@@ -192,14 +323,17 @@ const ProfileScreen = ({navigation}) => {
               <Text style={styles.value}>{phoneNumber}</Text>
             </View>
             <View style={styles.fieldContainer}>
-              <Text style={styles.label}>Vehicle</Text>
+              <Text style={styles.label}>Vehicle Number</Text>
               <Text style={styles.value}>{vehicleNumber}</Text>
             </View>
             <View style={styles.fieldContainerEnd}>
-              <Text style={styles.label}>License No</Text>
+              <Text style={styles.label}>Licence Number</Text>
               <Text style={styles.value}>{documentNumber}</Text>
             </View>
           </View>
+          {profileError ? (
+            <Text style={styles.profileErrorText}>{profileError}</Text>
+          ) : null}
           <TouchableOpacity
             style={styles.editButton}
             onPress={handleLogout}
@@ -209,6 +343,40 @@ const ProfileScreen = ({navigation}) => {
         </>
       )}
     </ScrollView>
+    <Modal
+      visible={logoutModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setLogoutModalVisible(false)}>
+      <TouchableWithoutFeedback onPress={() => setLogoutModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={() => {}}>
+            <View style={styles.logoutModalCard}>
+              <Text style={styles.logoutModalTitle}>Confirm Logout</Text>
+              <Text style={styles.logoutModalSubtitle}>
+                Are you sure you want to logout?
+              </Text>
+              <View style={styles.logoutModalActions}>
+                <TouchableOpacity
+                  style={[styles.logoutActionBtn, styles.logoutCancelBtn]}
+                  onPress={() => setLogoutModalVisible(false)}>
+                  <Text style={styles.logoutCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.logoutActionBtn, styles.logoutContinueBtn]}
+                  onPress={() => {
+                    setLogoutModalVisible(false);
+                    performLogout();
+                  }}>
+                  <Text style={styles.logoutContinueText}>Continue</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+    </>
   );
 };
 
@@ -219,6 +387,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 28,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  loaderText: {
+    marginTop: 10,
+    color: '#374151',
+    fontWeight: '600',
+  },
+  profileErrorText: {
+    color: '#b91c1c',
+    fontSize: 13,
+    marginTop: 12,
+    marginBottom: 4,
   },
   screenTitle: {
     fontSize: 24,
@@ -284,7 +469,7 @@ const styles = StyleSheet.create({
     shadowColor: '#0F172A',
     shadowOpacity: 0.04,
     shadowRadius: 8,
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
   fieldContainer: {
@@ -359,6 +544,54 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: 'white',
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  logoutModalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+  },
+  logoutModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  logoutModalSubtitle: {
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 14,
+  },
+  logoutModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  logoutActionBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  logoutCancelBtn: {
+    backgroundColor: '#F3F4F6',
+  },
+  logoutContinueBtn: {
+    backgroundColor: '#111827',
+  },
+  logoutCancelText: {
+    color: '#111827',
+    fontWeight: '600',
+  },
+  logoutContinueText: {
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   updateButton: {

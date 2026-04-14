@@ -3,19 +3,56 @@ import React from 'react';
 import {View, Text, StyleSheet} from 'react-native';
 
 const OrderItem = ({order}) => {
+  const orderLabel = order?.orderNumber || order?.orderCreateData_id || 'NA';
+  const rawStatus = (order?.deliveryStatus || '').toString().toLowerCase();
+  const isDelivered = rawStatus === 'delivered';
+  const statusText = rawStatus
+    ? rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1)
+    : 'Assigned';
+  const statusPillStyle = isDelivered
+    ? styles.statusPillDelivered
+    : styles.statusPillAssigned;
+  const statusTextStyle = isDelivered
+    ? styles.statusPillTextDelivered
+    : styles.statusPillTextAssigned;
+
+  const createdDate = order?.createdAt ? new Date(order.createdAt) : null;
+  const createdDateLabel =
+    createdDate && !Number.isNaN(createdDate.getTime())
+      ? createdDate.toLocaleDateString('en-US', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : 'N/A';
+
+  let billingAddress = {};
+  try {
+    billingAddress = JSON.parse(order?.billing_address || '{}');
+  } catch (error) {
+    billingAddress = {};
+  }
+  const addressLine = order?.deliveryAddress || billingAddress?.address1 || '';
+  const city = order?.deliveryCity || billingAddress?.city || '';
+  const zip = order?.deliveryZip || billingAddress?.zip || '';
+  const country = order?.deliveryCountry || billingAddress?.country || '';
+  const fullAddress = [addressLine, city, zip, country].filter(Boolean).join(', ');
+
   return (
     <View style={styles.container}>
       <View style={styles.leadingAccent} />
       <View style={styles.textContainer}>
         <View style={styles.topRow}>
-          <Text style={styles.title}>#{order?.orderCreateData_id}</Text>
-          <View style={styles.statusPill}>
-            <Text style={styles.statusPillText}>Delivered</Text>
+          <Text style={styles.title}>{orderLabel}</Text>
+          <View style={[styles.statusPill, statusPillStyle]}>
+            <Text style={[styles.statusPillText, statusTextStyle]}>
+              {statusText}
+            </Text>
           </View>
         </View>
         <View style={styles.itemCnt}>
-          <Text style={styles.details}>4 Items</Text>
-          <Text style={styles.date}>10 June, 2024</Text>
+          <Text style={styles.details}>{fullAddress || 'Address not available'}</Text>
+          <Text style={styles.date}>{createdDateLabel}</Text>
         </View>
       </View>
     </View>
@@ -63,27 +100,39 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   statusPill: {
-    backgroundColor: '#ECFDF3',
-    borderColor: '#A7F3D0',
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
   },
+  statusPillDelivered: {
+    backgroundColor: '#ECFDF3',
+    borderColor: '#A7F3D0',
+  },
+  statusPillAssigned: {
+    backgroundColor: '#EFF6FF',
+    borderColor: '#BFDBFE',
+  },
   statusPillText: {
-    color: '#047857',
     fontSize: 12,
     fontWeight: '700',
   },
+  statusPillTextDelivered: {
+    color: '#047857',
+  },
+  statusPillTextAssigned: {
+    color: '#1D4ED8',
+  },
   itemCnt: {
     width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 6,
   },
   details: {
     fontSize: 13,
     color: '#6B7280',
+    width: '100%',
   },
   date: {
     fontSize: 13,

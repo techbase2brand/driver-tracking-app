@@ -6,18 +6,15 @@ import {
   StyleSheet,
   Image,
   TextInput,
-  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 import Button from '../shared/Button';
 import {useDispatch} from 'react-redux';
 import {setEmail} from '../redux/action';
-import {
-  BACKEND_URL,
-  USE_STATIC_DEMO_MODE,
-  STATIC_DEMO_EMAIL,
-  STATIC_DEMO_PASSWORD,
-  STATIC_DEMO_LOGIN_RESPONSE,
-} from '../constant/Constant';
+import {API_BASE_URL} from '../constant/Constant';
 
 /** Basic email format check (password intentionally not regex-based). */
 const isValidEmail = email => {
@@ -29,11 +26,26 @@ const isValidEmail = email => {
 };
 
 const isPasswordFilled = password => password.trim().length > 0;
+const LOGIN_API_URL = `${API_BASE_URL}/driverLogin`;
 
-const LoginScreen = ({navigation}) => {
+const getSessionPayload = responseData => {
+  if (responseData?.driver?.email || responseData?.token) {
+    return responseData;
+  }
+
+  if (responseData?.data?.driver?.email || responseData?.data?.token) {
+    return responseData.data;
+  }
+
+  return responseData;
+};
+
+const LoginScreen = () => {
   const dispatch = useDispatch();
   const [emailText, setEmailText] = useState('');
   const [passwordText, setPasswordText] = useState('');
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   /** Wrong email/password after format checks — highlight both fields, no sensitive hints. */
@@ -70,46 +82,51 @@ const LoginScreen = ({navigation}) => {
     console.log('emailText....', emailText);
     console.log('passwordText....', passwordText);
 
-    if (USE_STATIC_DEMO_MODE) {
-      const ok =
-        trimmedEmail.toLowerCase() === STATIC_DEMO_EMAIL.toLowerCase() &&
-        passwordText === STATIC_DEMO_PASSWORD;
-      if (ok) {
-        dispatch(setEmail(STATIC_DEMO_LOGIN_RESPONSE));
+    try {
+      setIsLoginLoading(true);
+      const response = await fetch(LOGIN_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: emailText.trim(),
+          password: passwordText,
+        }),
+      });
+
+      const data = await response.json();
+      if (__DEV__) {
+        console.log('Login response:', data);
+      }
+
+      if (response.ok) {
+        const sessionPayload = getSessionPayload(data);
+        if (sessionPayload?.driver?.email || sessionPayload?.token) {
+          dispatch(
+            setEmail({
+              ...sessionPayload,
+              loginSessionAt: Date.now(),
+            }),
+          );
+        } else {
+          setCredentialsMismatch(true);
+          setPasswordError('Login response format is invalid.');
+        }
       } else {
         setCredentialsMismatch(true);
         setPasswordError(
           'Invalid email or password. Please check and try again.',
         );
       }
-      return;
-    }
-
-    /* API login — restored when USE_STATIC_DEMO_MODE is false */
-    const response = await fetch(`${BACKEND_URL}/api/driverLogin`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: emailText.trim(),
-        password: passwordText,
-      }),
-    });
-
-    const data = await response.json();
-    console.log('Response:', data);
-
-    if (response.ok) {
-      dispatch(setEmail(data));
-    } else {
-      setCredentialsMismatch(true);
-      setPasswordError(
-        'Invalid email or password. Please check and try again.',
-      );
+    } catch (error) {
       if (__DEV__) {
-        console.log('Login failed:', data?.error);
+        console.log('Login request failed:', error);
       }
+      setCredentialsMismatch(true);
+      setPasswordError('Unable to login right now. Please try again.');
+    } finally {
+      setIsLoginLoading(false);
     }
   };
 
@@ -120,7 +137,13 @@ const LoginScreen = ({navigation}) => {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}>
       <Image
         source={require('../assests/startupLogin.png')}
         style={styles.logo}
@@ -154,28 +177,45 @@ const LoginScreen = ({navigation}) => {
           }}
           keyboardType="email-address"
           autoCapitalize="none"
+          autoCorrect={false}
+          spellCheck={false}
+          textContentType="username"
+          autoComplete="email"
           placeholderTextColor="gray"
         />
         {emailError && emailError.trim() ? (
           <Text style={styles.errorText}>{emailError}</Text>
         ) : null}
         <Text style={styles.inputTitle}>Password</Text>
-        <TextInput
+        <View
           style={[
-            styles.input,
+            styles.passwordInputWrapper,
             passwordError || credentialsMismatch ? styles.inputError : null,
-          ]}
-          placeholder="Password"
-          secureTextEntry
-          value={passwordText}
-          onChangeText={text => {
-            setPasswordText(text);
-            setCredentialsMismatch(false);
-            if (passwordError) {
-              setPasswordError('');
-            }
-          }}
-        />
+          ]}>
+          <TextInput
+            style={styles.passwordInput}
+            placeholder="Password"
+            secureTextEntry={!showPassword}
+            value={passwordText}
+            onChangeText={text => {
+              setPasswordText(text);
+              setCredentialsMismatch(false);
+              if (passwordError) {
+                setPasswordError('');
+              }
+            }}
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            activeOpacity={0.7}
+            onPress={() => setShowPassword(prev => !prev)}>
+            <Ionicons
+              name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+              size={20}
+              color="#6B7280"
+            />
+          </TouchableOpacity>
+        </View>
         {passwordError ? (
           <Text style={styles.errorText}>{passwordError}</Text>
         ) : null}
@@ -211,8 +251,12 @@ const LoginScreen = ({navigation}) => {
           textInputStyle={{height: 70}}
         /> */}
       </View>
-      <Button onloginClick={onloginClick} title="Login" />
-      <Text style={styles.registerText}>By continuing you agree to our </Text>
+      <Button
+        onloginClick={onloginClick}
+        title="Login"
+        loading={isLoginLoading}
+      />
+      {/* <Text style={styles.registerText}>By continuing you agree to our </Text>
       <View style={styles.linksContainer}>
         <TouchableOpacity onPress={() => handlePress('Terms of Service')}>
           <Text style={styles.linkText}>Terms of Service</Text>
@@ -223,17 +267,21 @@ const LoginScreen = ({navigation}) => {
         <TouchableOpacity onPress={() => handlePress('Content Policy')}>
           <Text style={styles.linkText}>Content Policy</Text>
         </TouchableOpacity>
-      </View>
-    </View>
+      </View> */}
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
+    padding: 20,
   },
   logo: {
     width: 100,
@@ -261,6 +309,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     marginBottom: 8,
     color: 'black',
+  },
+  passwordInputWrapper: {
+    height: 50,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passwordInput: {
+    flex: 1,
+    color: 'black',
+    paddingVertical: 0,
+  },
+  eyeButton: {
+    paddingLeft: 10,
+    paddingVertical: 4,
   },
   inputError: {
     borderColor: '#c62828',

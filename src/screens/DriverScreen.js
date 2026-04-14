@@ -4,10 +4,10 @@ import MapView, {Marker} from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import Geolocation from 'react-native-geolocation-service';
 import {
-  BACKEND_URL,
+  API_BASE_URL,
   GOOGLE_MAPS_APIKEY,
-  USE_STATIC_DEMO_MODE,
-  STATIC_DEMO_DESTINATION,
+  // USE_STATIC_DEMO_MODE,
+  // STATIC_DEMO_DESTINATION,
 } from '../constant/Constant';
 import {useSelector} from 'react-redux';
 import {
@@ -23,8 +23,10 @@ const LATITUDE_DELTA = 2.0922;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 
 const DESTINATION = {
-  latitude: STATIC_DEMO_DESTINATION.latitude,
-  longitude: STATIC_DEMO_DESTINATION.longitude,
+  // latitude: STATIC_DEMO_DESTINATION.latitude,
+  // longitude: STATIC_DEMO_DESTINATION.longitude,
+  latitude: 30.678212,
+  longitude: 76.667856,
 };
 
 export default function DriverScreen() {
@@ -57,7 +59,7 @@ export default function DriverScreen() {
 
   const sendDriverLocation = async (currentLat, currentLng) => {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/driverInfo`, {
+      const response = await fetch(`${API_BASE_URL}/driverInfo`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,9 +124,10 @@ export default function DriverScreen() {
           DESTINATION.longitude,
         );
 
-        if (!USE_STATIC_DEMO_MODE) {
-          sendDriverLocation(latitude, longitude);
-        }
+        // if (!USE_STATIC_DEMO_MODE) {
+        //   sendDriverLocation(latitude, longitude);
+        // }
+        sendDriverLocation(latitude, longitude);
         if (distance < 0.1 && !nearbyAlertSent.current) {
           nearbyAlertSent.current = true;
           Alert.alert('You are near the destination');

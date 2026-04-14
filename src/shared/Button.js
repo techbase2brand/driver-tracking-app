@@ -1,13 +1,25 @@
-import {View, Text, TouchableOpacity, StyleSheet} from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import React from 'react';
 
-const Button = ({onloginClick, title, updateBtnWidth}) => {
+const Button = ({onloginClick, title, updateBtnWidth, loading = false}) => {
   return (
     <View>
       <TouchableOpacity
         style={[styles.button, {width: updateBtnWidth ? updateBtnWidth : ''}]}
-        onPress={onloginClick}>
-        <Text style={styles.buttonText}>{title}</Text>
+        onPress={onloginClick}
+        disabled={loading}
+        activeOpacity={loading ? 1 : 0.7}>
+        {loading ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={styles.buttonText}>{title}</Text>
+        )}
       </TouchableOpacity>
     </View>
   );

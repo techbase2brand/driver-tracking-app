@@ -1,5 +1,4 @@
 import React from 'react';
-import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import HomeScreen from '../screens/HomeScreen';
@@ -11,7 +10,6 @@ import {createStackNavigator} from '@react-navigation/stack';
 import DriverScreen from '../screens/DriverScreen';
 import MapScreen from '../screens/MapScreen';
 import {Platform, Text} from 'react-native';
-import LoginScreen from '../screens/LoginScreen';
 import RoutePlannerScreen from '../screens/RoutePlannerScreen';
 
 const Tab = createBottomTabNavigator();
@@ -69,18 +67,14 @@ function ProfileStack() {
         component={ProfileScreen}
         options={{headerShown: false}}
       />
-
-      <Stack.Screen
-        name="LoginScreen"
-        component={LoginScreen}
-        options={{headerShown: false}}
-      />
     </Stack.Navigator>
   );
 }
 const BottomTabNavigator = () => {
   return (
     <Tab.Navigator
+      initialRouteName="HomeTab"
+      backBehavior="initialRoute"
       screenOptions={({route}) => ({
         tabBarIcon: ({focused, color, size}) => {
           let iconName;
@@ -116,6 +110,12 @@ const BottomTabNavigator = () => {
       <Tab.Screen
         name="HomeTab"
         component={HomeStack}
+        listeners={({navigation}) => ({
+          tabPress: e => {
+            e.preventDefault();
+            navigation.navigate('HomeTab', {screen: 'HomeMain'});
+          },
+        })}
         options={{
           headerShown: false,
           tabBarLabel: 'Home',
@@ -123,11 +123,23 @@ const BottomTabNavigator = () => {
       />
       <Tab.Screen
         name="Orderhistory"
+        listeners={({navigation}) => ({
+          tabPress: e => {
+            e.preventDefault();
+            navigation.navigate('Orderhistory');
+          },
+        })}
         options={{headerShown: false}}
         component={OrderHistoryScreen}
       />
       <Tab.Screen
         name="Profile"
+        listeners={({navigation}) => ({
+          tabPress: e => {
+            e.preventDefault();
+            navigation.navigate('Profile', {screen: 'Profile'});
+          },
+        })}
         options={{headerShown: false}}
         component={ProfileStack}
       />
