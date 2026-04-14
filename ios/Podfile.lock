@@ -993,7 +993,7 @@ PODS:
     - React-debug
   - react-native-geolocation-service (5.3.1):
     - React
-  - react-native-image-picker (7.1.2):
+  - react-native-image-picker (7.2.3):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1617,7 +1617,7 @@ SPEC CHECKSUMS:
   React-logger: 70e002e04cc56ff5c12157537405d1644c050703
   React-Mapbuffer: 39d399e4d1115ba93442df1470e2ba8baef4b569
   react-native-geolocation-service: 32b2c2a3b91e70ce2a8d0c684801aaeb0a07e0ec
-  react-native-image-picker: 5af4a7bee8d8e9bd0d5fc3c5c88e7d4a70ff2ce1
+  react-native-image-picker: f5147edf96d2cdb4c157eda701b19e750ce14b5d
   react-native-maps: 622489184d305713b2f576b0cad1375ac75e62a6
   react-native-safe-area-context: 96a29fae9fd5c088236c84d69ce3a4ee0e148c1d
   React-nativeconfig: 5d452e509d6fbedc1522e21b566451fc673ac6b7

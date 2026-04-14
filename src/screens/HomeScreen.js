@@ -127,6 +127,32 @@ const HomeScreen = ({navigation, route}) => {
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
   const [geocodedByAddress, setGeocodedByAddress] = useState({});
   const [statusTargetOrderId, setStatusTargetOrderId] = useState(null);
+  const [deliveryProofModalVisible, setDeliveryProofModalVisible] =
+    useState(false);
+  const [deliveryProofUri, setDeliveryProofUri] = useState(null);
+  const [deliveryProofBase64, setDeliveryProofBase64] = useState(null);
+  const [deliveryProofMimeType, setDeliveryProofMimeType] = useState(null);
+
+  const handleDeliveryProofChange = payload => {
+    if (payload == null) {
+      setDeliveryProofUri(null);
+      setDeliveryProofBase64(null);
+      setDeliveryProofMimeType(null);
+      return;
+    }
+    setDeliveryProofUri(payload.uri);
+    setDeliveryProofBase64(payload.base64);
+    setDeliveryProofMimeType(payload.mimeType || 'image/jpeg');
+  };
+
+  useEffect(() => {
+    if (selectedStatus !== 'delivered') {
+      setDeliveryProofUri(null);
+      setDeliveryProofBase64(null);
+      setDeliveryProofMimeType(null);
+      setDeliveryProofModalVisible(false);
+    }
+  }, [selectedStatus]);
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the Earth in km
@@ -495,13 +521,24 @@ const HomeScreen = ({navigation, route}) => {
     }
     if (selectedStatus) {
       setStatusSubmitError('');
+      if (selectedStatus === 'delivered' && !deliveryProofBase64) {
+        setStatusSubmitError(
+          'Take a delivery proof photo with the camera before submitting.',
+        );
+        return;
+      }
       if (USE_STATIC_DEMO_MODE) {
         if (__DEV__) {
           console.log('deliveryStatus (local)', {
             status: selectedStatus,
             orderId: statusTargetOrder?.orderCreateData_id,
+            hasDeliveryProof: selectedStatus === 'delivered',
           });
         }
+        setDeliveryProofModalVisible(false);
+        setDeliveryProofUri(null);
+        setDeliveryProofBase64(null);
+        setDeliveryProofMimeType(null);
         moveToNextStop(statusTargetOrder?.id);
         return;
       }
@@ -512,6 +549,12 @@ const HomeScreen = ({navigation, route}) => {
         trackingNumber: 123312423433,
         orderId: statusTargetOrder?.orderCreateData_id,
       };
+      if (selectedStatus === 'delivered' && deliveryProofBase64) {
+        const mime = deliveryProofMimeType || 'image/jpeg';
+        requestBody.deliveryProofBase64 = deliveryProofBase64;
+        requestBody.deliveryProofMimeType = mime;
+        requestBody.deliveryProofImageUrl = `data:${mime};base64,${deliveryProofBase64}`;
+      }
       fetch(`${BACKEND_URL}/api/deliveryStatus`, {
         method: 'POST',
         headers: {
@@ -527,6 +570,10 @@ const HomeScreen = ({navigation, route}) => {
         })
         .then(data => {
           console.log('API Response:', data);
+          setDeliveryProofModalVisible(false);
+          setDeliveryProofUri(null);
+          setDeliveryProofBase64(null);
+          setDeliveryProofMimeType(null);
           moveToNextStop(statusTargetOrder?.id);
         })
         .catch(error => {
@@ -694,7 +741,14 @@ const HomeScreen = ({navigation, route}) => {
               setStatusTargetOrderId(order?.id);
               setSelectedStatus('');
               setStatusSubmitError('');
+              handleDeliveryProofChange(null);
+              setDeliveryProofModalVisible(false);
             }}
+            deliveryProofModalVisible={deliveryProofModalVisible}
+            setDeliveryProofModalVisible={setDeliveryProofModalVisible}
+            deliveryProofUri={deliveryProofUri}
+            onDeliveryProofChange={handleDeliveryProofChange}
+            onSubmitDelivery={handleSubmit}
           />
           {statusSubmitError ? (
             <Text style={styles.statusSubmitError}>{statusSubmitError}</Text>
