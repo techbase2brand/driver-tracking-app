@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Image,
   ScrollView,
   Linking,
   Alert,
@@ -57,11 +56,63 @@ const DESTINATION = {
   longitude: STATIC_DEMO_DESTINATION.longitude,
 };
 
-const HomeScreen = ({navigation}) => {
+const toNumber = value => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+};
+
+const resolveOrderAddress = billingAddress => {
+  if (!billingAddress || typeof billingAddress !== 'object') {
+    return '';
+  }
+  const primaryKeys = [
+    'address1',
+    'address_1',
+    'address',
+    'full_address',
+    'line1',
+    'street',
+  ];
+  for (const key of primaryKeys) {
+    const value = billingAddress[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  const combined = [
+    billingAddress.line2,
+    billingAddress.address2,
+    billingAddress.city,
+    billingAddress.state,
+    billingAddress.postcode,
+    billingAddress.zip,
+    billingAddress.country,
+  ]
+    .filter(part => typeof part === 'string' && part.trim())
+    .map(part => part.trim())
+    .join(', ');
+
+  return combined;
+};
+
+const resolveOrderPhone = billingAddress => {
+  if (!billingAddress || typeof billingAddress !== 'object') {
+    return '';
+  }
+  const phoneKeys = ['phone', 'mobile', 'contact', 'contact_no', 'telephone'];
+  for (const key of phoneKeys) {
+    const value = billingAddress[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+};
+
+const HomeScreen = ({navigation, route}) => {
   const mapRef = useRef();
   const email = useSelector(state => state?.email?.driver?.email);
-  const [CalDistance, setCalDistance] = useState();
-  const [CalDuration, setCalDuration] = useState();
   const [pickup, setPickup] = useState({
     latitude: 30.7046,
     longitude: 76.7179,
@@ -70,9 +121,12 @@ const HomeScreen = ({navigation}) => {
   });
   const [selectedStatus, setSelectedStatus] = useState('');
   const [orders, setOrders] = useState();
-  const [billingAddress, setBillingAddress] = useState();
   const [mapReady, setMapReady] = useState(false);
   const [statusSubmitError, setStatusSubmitError] = useState('');
+  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
+  const [geocodedByAddress, setGeocodedByAddress] = useState({});
+  const [statusTargetOrderId, setStatusTargetOrderId] = useState(null);
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371; // Radius of the Earth in km
@@ -93,14 +147,6 @@ const HomeScreen = ({navigation}) => {
     if (USE_STATIC_DEMO_MODE) {
       const data = STATIC_DEMO_ORDERS_RESPONSE;
       setOrders(data);
-      try {
-        const billing = JSON.parse(
-          data?.getorderCreateData?.[0]?.billing_address,
-        );
-        setBillingAddress(billing);
-      } catch (e) {
-        console.error('Static billing parse:', e);
-      }
       return;
     }
 
@@ -117,10 +163,6 @@ const HomeScreen = ({navigation}) => {
       const data = await response.json();
       console.log('data', data);
       setOrders(data);
-      const billingAddress = JSON.parse(
-        data?.getorderCreateData?.[0]?.billing_address,
-      );
-      setBillingAddress(billingAddress);
     } catch (error) {
       console.error('Error fetching orders:', error);
     }
@@ -129,6 +171,20 @@ const HomeScreen = ({navigation}) => {
   useEffect(() => {
     fetchOrders();
   }, [email]);
+
+  useEffect(() => {
+    setCurrentOrderIndex(0);
+  }, [selectedOrderIds]);
+
+  useEffect(() => {
+    if (Array.isArray(route?.params?.plannedOrderIds)) {
+      setSelectedOrderIds(route.params.plannedOrderIds);
+      setCurrentOrderIndex(0);
+      setSelectedStatus('');
+      setStatusSubmitError('');
+      setStatusTargetOrderId(null);
+    }
+  }, [route?.params?.plannedOrderIds]);
 
   useEffect(() => {
     if (selectedStatus) {
@@ -221,11 +277,6 @@ const HomeScreen = ({navigation}) => {
     };
   }, []);
 
-  const openGoogleMaps = () => {
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${DESTINATION.latitude},${DESTINATION.longitude}&travelmode=driving`;
-    Linking.openURL(url);
-  };
-
   const openDialPad = value => {
     console.log('value', value);
 
@@ -233,18 +284,225 @@ const HomeScreen = ({navigation}) => {
     console.log('openDialPad', telUrl);
     Linking.openURL(telUrl);
   };
+
+  const parsedOrders = (orders?.getorderCreateData || []).map(order => {
+    let parsedBillingAddress = {};
+    try {
+      parsedBillingAddress = JSON.parse(order?.billing_address || '{}');
+    } catch (error) {
+      parsedBillingAddress = {};
+    }
+    const normalizedAddress = resolveOrderAddress(parsedBillingAddress);
+    const geocodedCoordinate = geocodedByAddress[normalizedAddress];
+    return {
+      ...order,
+      billingAddress: parsedBillingAddress,
+      resolvedAddress: normalizedAddress,
+      destination: {
+        latitude:
+          geocodedCoordinate?.latitude ||
+          toNumber(order?.latitude) ||
+          toNumber(order?.lat) ||
+          toNumber(parsedBillingAddress?.latitude) ||
+          toNumber(parsedBillingAddress?.lat) ||
+          STATIC_DEMO_DESTINATION.latitude +
+            ((order?.orderCreateData_id?.length || 1) % 3) * 0.008,
+        longitude:
+          geocodedCoordinate?.longitude ||
+          toNumber(order?.longitude) ||
+          toNumber(order?.lng) ||
+          toNumber(parsedBillingAddress?.longitude) ||
+          toNumber(parsedBillingAddress?.lng) ||
+          STATIC_DEMO_DESTINATION.longitude +
+            ((order?.orderCreateData_id?.length || 1) % 4) * 0.006,
+      },
+    };
+  });
+
+  useEffect(() => {
+    const ordersList = orders?.getorderCreateData || [];
+    const uniqueAddresses = [
+      ...new Set(
+        ordersList
+          .map(order => {
+            try {
+              const billing = JSON.parse(order?.billing_address || '{}');
+              return resolveOrderAddress(billing);
+            } catch (error) {
+              return '';
+            }
+          })
+          .filter(Boolean),
+      ),
+    ];
+
+    const pendingAddresses = uniqueAddresses.filter(
+      address => !geocodedByAddress[address],
+    );
+    if (!pendingAddresses.length) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const geocodeAddresses = async () => {
+      for (const address of pendingAddresses) {
+        try {
+          const response = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+              address,
+            )}&key=${GOOGLE_MAPS_APIKEY}`,
+          );
+          const data = await response.json();
+          const location = data?.results?.[0]?.geometry?.location;
+          if (!cancelled && location?.lat && location?.lng) {
+            setGeocodedByAddress(prev => ({
+              ...prev,
+              [address]: {
+                latitude: Number(location.lat),
+                longitude: Number(location.lng),
+              },
+            }));
+          }
+        } catch (error) {
+          if (__DEV__) {
+            console.warn('Address geocoding failed:', address, error?.message);
+          }
+        }
+      }
+    };
+
+    geocodeAddresses();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [orders, geocodedByAddress]);
+
+  const selectedOrders = parsedOrders.filter(order =>
+    selectedOrderIds.includes(order?.id),
+  );
+
+  const sortNearestFirst = ordersList => {
+    if (ordersList.length <= 1) {
+      return ordersList;
+    }
+    const remaining = [...ordersList];
+    const sorted = [];
+    let fromPoint = {
+      latitude: pickup.latitude,
+      longitude: pickup.longitude,
+    };
+
+    while (remaining.length > 0) {
+      let nearestIndex = 0;
+      let nearestDistance = Number.MAX_VALUE;
+      remaining.forEach((order, index) => {
+        const distance = calculateDistance(
+          fromPoint.latitude,
+          fromPoint.longitude,
+          order.destination.latitude,
+          order.destination.longitude,
+        );
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nearestIndex = index;
+        }
+      });
+      const nearest = remaining.splice(nearestIndex, 1)[0];
+      sorted.push(nearest);
+      fromPoint = nearest.destination;
+    }
+
+    return sorted;
+  };
+
+  const routeOrders = sortNearestFirst(selectedOrders);
+  const boundedCurrentOrderIndex =
+    routeOrders.length > 0
+      ? Math.min(currentOrderIndex, routeOrders.length - 1)
+      : 0;
+  const currentOrder = routeOrders[boundedCurrentOrderIndex];
+  const statusTargetOrder =
+    routeOrders.find(order => order?.id === statusTargetOrderId) || null;
+  const remainingRouteOrders = routeOrders.slice(boundedCurrentOrderIndex);
+  /** One leg at a time: path only to the active (first remaining) stop — not full multi-waypoint route */
+  const activeLegDestination = currentOrder?.destination || null;
+
+  const openRoutePlanner = () => {
+    navigation.navigate('RoutePlannerScreen', {
+      orders: parsedOrders,
+      pickup: pickupLatLng,
+      selectedOrderIds,
+    });
+  };
+
+  useEffect(() => {
+    if (
+      statusTargetOrderId &&
+      !routeOrders.some(order => order?.id === statusTargetOrderId)
+    ) {
+      setStatusTargetOrderId(null);
+      setSelectedStatus('');
+    }
+  }, [routeOrders, statusTargetOrderId, selectedStatus]);
+
+  const moveToNextStop = completedOrderId => {
+    const completedIndex = routeOrders.findIndex(order => order?.id === completedOrderId);
+    const remainingCount = Math.max(routeOrders.length - 1, 0);
+
+    setSelectedOrderIds(prev => prev.filter(id => id !== completedOrderId));
+    setStatusTargetOrderId(null);
+    setSelectedStatus('');
+
+    if (remainingCount === 0) {
+      Alert.alert('Success', 'All selected orders are updated.');
+      setCurrentOrderIndex(0);
+      return;
+    }
+
+    setCurrentOrderIndex(prev => {
+      if (completedIndex === -1) {
+        return prev;
+      }
+      if (completedIndex < prev) {
+        return Math.max(prev - 1, 0);
+      }
+      if (completedIndex === prev) {
+        return prev;
+      }
+      return prev;
+    });
+    Alert.alert('Success', 'Order updated. Moving to next selected order.');
+  };
+
+  const openPlannedMap = () => {
+    navigation.navigate('MapScreen', {
+      pickup: pickupLatLng,
+      routeOrders,
+      currentOrderIndex: boundedCurrentOrderIndex,
+    });
+  };
+
   const handleSubmit = () => {
+    if (!statusTargetOrder) {
+      setStatusSubmitError('Select order for status update first.');
+      return;
+    }
+    if (!currentOrder) {
+      setStatusSubmitError('Please select at least one order first.');
+      return;
+    }
     if (selectedStatus) {
       setStatusSubmitError('');
       if (USE_STATIC_DEMO_MODE) {
         if (__DEV__) {
           console.log('deliveryStatus (local)', {
             status: selectedStatus,
-            orderId: orders?.getorderCreateData?.[0]?.orderCreateData_id,
+            orderId: statusTargetOrder?.orderCreateData_id,
           });
         }
-        Alert.alert('Success', 'Status updated successfully.');
-        setSelectedStatus('');
+        moveToNextStop(statusTargetOrder?.id);
         return;
       }
 
@@ -252,7 +510,7 @@ const HomeScreen = ({navigation}) => {
         status: selectedStatus,
         trackingUrl: 'https://google.com',
         trackingNumber: 123312423433,
-        orderId: orders?.getorderCreateData?.[0]?.orderCreateData_id,
+        orderId: statusTargetOrder?.orderCreateData_id,
       };
       fetch(`${BACKEND_URL}/api/deliveryStatus`, {
         method: 'POST',
@@ -269,13 +527,11 @@ const HomeScreen = ({navigation}) => {
         })
         .then(data => {
           console.log('API Response:', data);
-          Alert.alert('Success', 'Status updated successfully.');
+          moveToNextStop(statusTargetOrder?.id);
         })
         .catch(error => {
           console.error('Error updating status:', error);
         });
-
-      setSelectedStatus('');
     } else {
       setStatusSubmitError('Please select a status first.');
     }
@@ -288,6 +544,7 @@ const HomeScreen = ({navigation}) => {
 
   return (
     <View style={styles.screenRoot}>
+      <Text style={styles.screenTitle}>Today's Delivery</Text>
       <View style={styles.mapSection}>
         <MapView
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
@@ -299,24 +556,30 @@ const HomeScreen = ({navigation}) => {
           pitchEnabled={false}
           onMapReady={() => setMapReady(true)}>
           <Marker coordinate={pickupLatLng} title="You are here" />
-          <Marker
-            coordinate={DESTINATION}
-            title="Destination"
-            description={STATIC_DEMO_DESTINATION.addressLabel}
-          />
-          {mapReady ? (
+          {remainingRouteOrders.map((routeOrder, index) => (
+            <Marker
+              key={`${routeOrder?.id}-${index}`}
+              coordinate={routeOrder.destination}
+              title={
+                index === 0
+                  ? `Current — #${routeOrder?.orderCreateData_id || ''}`
+                  : `Upcoming ${index + 1}`
+              }
+              description={routeOrder?.resolvedAddress || 'Address not available'}
+              pinColor={index === 0 ? '#FBBC05' : '#9CA3AF'}
+            />
+          ))}
+          {mapReady && activeLegDestination ? (
             <MapViewDirections
+              key={`leg-${currentOrder?.id}-${boundedCurrentOrderIndex}`}
               origin={pickupLatLng}
-              destination={DESTINATION}
+              destination={activeLegDestination}
               apikey={GOOGLE_MAPS_APIKEY}
-              strokeWidth={3}
-              strokeColor="black"
-              optimizeWaypoints={true}
+              strokeWidth={4}
+              strokeColor="#111827"
               onReady={result => {
                 console.log('Directions distance', result.distance);
                 console.log('Directions duration', result.duration.toFixed(1));
-                setCalDistance(result.distance.toFixed(1));
-                setCalDuration(result.duration.toFixed(1));
                 if (mapRef.current) {
                   mapRef.current.fitToCoordinates(result.coordinates, {
                     edgePadding: {
@@ -338,8 +601,8 @@ const HomeScreen = ({navigation}) => {
         </MapView>
         <TouchableOpacity
           style={styles.directionsButton}
-          onPress={() => navigation.navigate('DriverScreen')}>
-          <MaterialIcons name={'directions'} size={50} color={'black'} />
+          onPress={openPlannedMap}>
+          <MaterialIcons name={'directions'} size={26} color={'#111827'} />
         </TouchableOpacity>
       </View>
 
@@ -350,83 +613,139 @@ const HomeScreen = ({navigation}) => {
         contentContainerStyle={styles.ordersScrollContent}>
       <View style={styles.ordersSection}>
         <View style={styles.orderContainer}>
-          <Image
-            source={{uri: CUSTOMER_DETAILS.image}}
-            style={styles.foodImage}
-          />
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              width: '76%',
-            }}>
+          <View style={styles.routePlannerHeader}>
             <View>
-              <Text style={styles.orderName}>
-                {CUSTOMER_DETAILS?.orderName}
-              </Text>
-              <Text style={{}}>
-                {orders?.getorderCreateData?.[0]?.orderCreateData_id}
+              <Text style={styles.orderListTitle}>Planned Route</Text>
+              <Text style={styles.routePlannerSubTitle}>
+                Select and optimize stops before trip
               </Text>
             </View>
             <TouchableOpacity
-              style={[
-                styles.addButton,
-                {
-                  borderRadius: 100,
-                  height: 50,
-                  width: 50,
-                  padding: 10,
-                  backgroundColor: '#FBBC05',
-                },
-              ]}
-              onPress={() => openDialPad(billingAddress?.phone)}>
-              <AntDesign
-                name={'phone'}
-                size={30}
-                color={'white'}
-                style={{transform: [{rotate: '100deg'}]}}
-              />
+              style={styles.planButton}
+              activeOpacity={0.85}
+              onPress={openRoutePlanner}>
+              <Text style={styles.planButtonText}>
+                {routeOrders.length > 0 ? 'Edit Plan' : 'Plan Route'}
+              </Text>
             </TouchableOpacity>
           </View>
+          {routeOrders.length === 0 ? (
+            <Text style={styles.emptyPlanText}>
+              No route planned yet. Tap Plan Route to start.
+            </Text>
+          ) : null}
         </View>
-
-        <View style={styles.detailsContainer}>
-          <View style={styles.infoRow}>
-            <Icon name="time-outline" size={30} color="#FFBF00" />
-            <View>
-              <Text style={styles.infoText}>Your Delivery Time</Text>
-              <Text
-                style={[styles.infoText, {fontWeight: '500', fontSize: 16}]}>
-                Estimated 8:30 - 9:15 PM
-              </Text>
+        {routeOrders.length > 0 ? (
+          <View style={styles.detailsContainer}>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconWrap}>
+                <Icon name="time-outline" size={20} color="#F59E0B" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Your Delivery Time</Text>
+                <Text style={styles.infoValue}>Estimated 8:30 - 9:15 PM</Text>
+              </View>
+            </View>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconWrap}>
+                <Icon name="location-outline" size={20} color="#F59E0B" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Current Delivery Address</Text>
+                <Text style={styles.infoValue}>
+                  {currentOrder?.resolvedAddress || 'Address not available'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.infoRow}>
+              <View style={styles.infoIconWrap}>
+                <Icon name="cube-outline" size={18} color="#F59E0B" />
+              </View>
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Updating status for</Text>
+                <Text style={styles.infoValue}>
+                  #{currentOrder?.orderCreateData_id || 'NA'}
+                </Text>
+              </View>
             </View>
           </View>
-          <View style={styles.infoRow}>
-            <Icon name="location-outline" size={35} color="#FFBF00" />
-            <View>
-              <Text style={styles.infoText}>Your Delivery Address</Text>
-              <Text
-                style={[styles.infoText, {fontWeight: '500', fontSize: 16}]}>
-                {billingAddress?.address1}
-              </Text>
-            </View>
-          </View>
-        </View>
-        <Image
-          source={require('../assests/dotImg.png')}
-          style={styles.dotImg}
-          resizeMode="contain"
-        />
-
-        <OrderStatus
-          selectedStatus={selectedStatus}
-          setSelectedStatus={setSelectedStatus}
-          statuses={statuses}
-        />
-        {statusSubmitError ? (
-          <Text style={styles.statusSubmitError}>{statusSubmitError}</Text>
         ) : null}
-        <Button onloginClick={handleSubmit} title="Submit" />
+
+        <View style={styles.statusSection}>
+          <Text style={styles.statusLabel}>Update delivery status</Text>
+          <Text style={styles.statusOrderText}>
+            {statusTargetOrder
+              ? `Selected: #${statusTargetOrder?.orderCreateData_id}`
+              : 'Tap dropdown to choose order first'}
+          </Text>
+          <OrderStatus
+            selectedStatus={selectedStatus}
+            setSelectedStatus={setSelectedStatus}
+            statuses={statuses}
+            ordersForStatus={routeOrders}
+            selectedOrderId={statusTargetOrderId}
+            currentOrderId={currentOrder?.id}
+            selectedOrderLabel={
+              statusTargetOrder
+                ? `#${statusTargetOrder?.orderCreateData_id}`
+                : null
+            }
+            onOrderChosen={order => {
+              setStatusTargetOrderId(order?.id);
+              setSelectedStatus('');
+              setStatusSubmitError('');
+            }}
+          />
+          {statusSubmitError ? (
+            <Text style={styles.statusSubmitError}>{statusSubmitError}</Text>
+          ) : null}
+          <Button onloginClick={handleSubmit} title="Submit" />
+          {routeOrders.length > 0 ? (
+            <View style={styles.activeOrdersBelowSubmit}>
+              <Text style={styles.activeOrdersBelowTitle}>Active Orders</Text>
+              {routeOrders.map((routeOrder, index) => {
+                const customerPhone = resolveOrderPhone(routeOrder?.billingAddress);
+                return (
+                  <View
+                    key={`route-${routeOrder?.id}`}
+                    style={[
+                      styles.activeOrderCard,
+                      index === boundedCurrentOrderIndex && styles.routeListItemActive,
+                    ]}>
+                    <View style={styles.activeOrderCardHeader}>
+                      <Text style={styles.routeListText}>
+                        Stop {index + 1}: #{routeOrder?.orderCreateData_id}
+                      </Text>
+                      {index === boundedCurrentOrderIndex ? (
+                        <Text style={styles.currentStopPill}>Current</Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.activeOrderAddressText}>
+                      Address: {routeOrder?.resolvedAddress || 'Address not available'}
+                    </Text>
+                    <View style={styles.activeOrderContactRow}>
+                      <Text style={styles.activeOrderAddressText}>
+                        Customer: {customerPhone || 'Phone not available'}
+                      </Text>
+                      {customerPhone ? (
+                        <TouchableOpacity
+                          style={styles.callButton}
+                          onPress={() => openDialPad(customerPhone)}>
+                          <AntDesign
+                            name={'phone'}
+                            size={18}
+                            color={'white'}
+                            style={{transform: [{rotate: '100deg'}]}}
+                          />
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : null}
+        </View>
       </View>
       </ScrollView>
     </View>
@@ -436,12 +755,28 @@ const HomeScreen = ({navigation}) => {
 const styles = StyleSheet.create({
   screenRoot: {
     flex: 1,
-    padding: 10,
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 14,
   },
   mapSection: {
-    height: 300,
-    borderRadius: 20,
+    height: 240,
+    borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: {width: 0, height: 4},
+    elevation: 2,
   },
   ordersScroll: {
     flex: 1,
@@ -454,99 +789,233 @@ const styles = StyleSheet.create({
   },
   directionsButton: {
     position: 'absolute',
-    bottom: 20,
-    right: 20,
+    bottom: 12,
+    right: 12,
     backgroundColor: '#fff',
-    padding: 6,
-    borderRadius: 5,
-    elevation: 5,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 3,
     alignItems: 'center',
     justifyContent: 'center',
   },
   ordersSection: {
-    marginTop: 20,
+    marginTop: 16,
   },
   statusSubmitError: {
     color: '#c62828',
     fontSize: 14,
     marginTop: 8,
-    marginBottom: 4,
-    marginHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    marginBottom: 4,
-    color: 'black',
-    marginTop: 10,
+    marginBottom: 2,
   },
   orderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 10,
-  },
-  foodImage: {
-    width: 70,
-    height: 70,
-    marginRight: 10,
-  },
-  orderName: {
-    // flex: 1,
-    fontSize: 20,
-    color: 'black',
-    fontWeight: 'bold',
-  },
-  addButton: {
-    backgroundColor: '#28a745',
-    padding: 10,
-    borderRadius: 5,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  driverItem: {
-    marginBottom: 16,
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
     shadowRadius: 10,
-    elevation: 2,
+    shadowOffset: {width: 0, height: 3},
+    elevation: 1,
   },
-  detailsContainer: {
-    flex: 2,
+  orderListTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
   },
-  orderName: {
-    fontSize: 22,
+  routePlannerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activeOrderMeta: {
+    marginTop: 6,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activeOrderText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  routeList: {
+    marginTop: 10,
+  },
+  routeListItem: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+  },
+  routeListItemActive: {
+    borderColor: '#FBBC05',
+    backgroundColor: '#FFFBEB',
+  },
+  routeListText: {
+    fontSize: 12,
+    color: '#374151',
     fontWeight: '600',
   },
+  routePlannerSubTitle: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  planButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  planButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyPlanText: {
+    marginTop: 10,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  orderName: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '700',
+  },
   orderId: {
-    fontSize: 18,
-    color: '#666',
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 3,
+  },
+  callButton: {
+    borderRadius: 20,
+    height: 40,
+    width: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FBBC05',
+  },
+  detailsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: {width: 0, height: 3},
+    elevation: 1,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
-    marginTop: 20,
+    marginBottom: 12,
   },
-  infoText: {
-    marginLeft: 10,
-    fontSize: 14,
+  infoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    marginRight: 10,
   },
-  dotImg: {
-    width: 50,
-    height: 50,
-    position: 'absolute',
-    left: -9,
-    top: 137,
+  infoContent: {
+    flex: 1,
   },
-  label: {
-    fontSize: 18,
+  infoLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  infoValue: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  statusSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: {width: 0, height: 3},
+    elevation: 1,
+  },
+  statusLabel: {
+    fontSize: 15,
+    color: '#111827',
+    fontWeight: '600',
     marginBottom: 8,
-    fontWeight: '800',
+  },
+  statusOrderText: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  activeOrdersBelowSubmit: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  activeOrdersBelowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 10,
+  },
+  activeOrderCard: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  activeOrderCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  currentStopPill: {
+    fontSize: 10,
+    color: '#92400E',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 999,
+    fontWeight: '700',
+  },
+  activeOrderAddressText: {
+    fontSize: 12,
+    color: '#4B5563',
+    marginTop: 2,
+  },
+  activeOrderContactRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
 });
 

@@ -14,16 +14,17 @@ const Button = ({onloginClick, title, updateBtnWidth}) => {
 };
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: 'black',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#111827',
+    paddingVertical: 13,
+    borderRadius: 12,
     alignItems: 'center',
-    marginVertical: 20,
+    marginTop: 12,
+    marginBottom: 8,
   },
   buttonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
 

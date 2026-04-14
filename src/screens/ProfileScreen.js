@@ -14,26 +14,26 @@ import {launchImageLibrary} from 'react-native-image-picker';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Button from '../shared/Button';
-import { useSelector } from 'react-redux';
-import { useDispatch } from 'react-redux';
-import { persistor } from '../redux/store';
-import {logout, setEmail} from '../redux/action';
+import {useSelector} from 'react-redux';
+import {useDispatch} from 'react-redux';
+import {logout} from '../redux/action';
 
 
 
   
 
 const ProfileScreen = ({navigation}) => {
-  const dispatch =useDispatch();
+  const dispatch = useDispatch();
   const DriverDetail = useSelector(state => state?.email);
-  console.log("DriverDetail>>>", DriverDetail);
-  const [name, setName] = useState (DriverDetail?.driver?.name || 'John Doe');
-  const [email, setEmail] = useState(DriverDetail?.driver?.email ||'john.doe@example.com');
-  const [phoneNumber, setPhoneNumber] = useState( DriverDetail?.driver?.phone|| '+1 234 567 890');
+  console.log('DriverDetail>>>', DriverDetail);
+  const [name, setName] = useState(DriverDetail?.driver?.name || 'John Doe');
+  const [email] = useState(DriverDetail?.driver?.email || 'john.doe@example.com');
+  const [phoneNumber, setPhoneNumber] = useState(
+    DriverDetail?.driver?.phone || '+1 234 567 890',
+  );
   const [vehicleNumber, setVehicleNumber] = useState('XYZ 1234');
   const [documentNumber, setDocumentNumber] = useState('DOC123456');
   const [profileImage, setProfileImage] = useState(null);
-  const [documentImages, setDocumentImages] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   
   const handleChooseProfilePhoto = () => {
@@ -46,20 +46,8 @@ const ProfileScreen = ({navigation}) => {
 
   const handleLogout = () => {
     dispatch(logout());
-    console.log("working>>>>");
-    navigation.navigate("LoginScreen")
-  };
-
-  const handleChooseDocumentPhoto = () => {
-    launchImageLibrary(
-      {mediaType: 'photo', selectionLimit: 0}, // selectionLimit: 0 allows multiple selection
-      response => {
-        if (response.assets && response.assets.length > 0) {
-          const uris = response.assets.map(asset => asset.uri);
-          setDocumentImages([...documentImages, ...uris]);
-        }
-      },
-    );
+    console.log('working>>>>');
+    navigation.navigate('LoginScreen');
   };
 
   const handleUpdateProfile = () => {
@@ -72,32 +60,35 @@ const ProfileScreen = ({navigation}) => {
     setIsEditing(false);
   }, []);
 
-  const getInitials = (name) => {
+  const getInitials = name => {
     return name ? name.charAt(0).toUpperCase() : '';
   };
 
-  const FallbackAvatar = ({ name }) => (
+  const FallbackAvatar = ({name}) => (
     <View style={styles.fallbackAvatar}>
       <Text style={styles.fallbackAvatarText}>{getInitials(name)}</Text>
     </View>
   );
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}>
       {isEditing ? (
         // Content when isEditing is true
         <>
           <TouchableOpacity
-            style={{position: 'absolute', top: 30, left: 15}}
+            style={styles.backIcon}
             activeOpacity={0.8}
             onPress={() => {
               setIsEditing(false);
             }}>
             <Icon name={'arrow-back'} size={30} color={'#000'} />
           </TouchableOpacity>
+          <Text style={styles.screenTitle}>Edit Profile</Text>
           <TouchableOpacity
             onPress={handleChooseProfilePhoto}
             disabled={!isEditing}
-            style={{marginTop: 40}}>
+            style={styles.avatarWrapper}>
             {/* <Image
               source={{
                 uri: profileImage
@@ -106,25 +97,15 @@ const ProfileScreen = ({navigation}) => {
               }}
               style={styles.avatar}
             /> */}
-             {profileImage ? (
+            {profileImage ? (
               <Image
-                source={{ uri: profileImage }}
+                source={{uri: profileImage}}
                 style={styles.avatar}
               />
             ) : (
               <FallbackAvatar name={name} />
             )}
-            <View
-              style={{
-                position: 'absolute',
-                top: 85,
-                right: 140,
-                height: 35,
-                width: 35,
-                backgroundColor: '#fff',
-                borderRadius: 100,
-                padding: 6,
-              }}>
+            <View style={styles.cameraIcon}>
               <AntDesign name={'camerao'} size={22} color={'#000'} />
             </View>
           </TouchableOpacity>
@@ -140,8 +121,8 @@ const ProfileScreen = ({navigation}) => {
             <Text style={styles.label}>Email:</Text>
             <TextInput
               style={styles.input}
-              // value={email}
-              // onChangeText={setEmail}
+              value={email}
+              editable={false}
             />
           </View>
           <View style={styles.fieldContainerEdit}>
@@ -175,19 +156,7 @@ const ProfileScreen = ({navigation}) => {
       ) : (
         // Content when isEditing is false
         <>
-          <Text
-            style={[
-              styles.label,
-              {
-                fontSize: 20,
-                fontWeight: '700',
-                position: 'absolute',
-                top: 20,
-                left: 20,
-              },
-            ]}>
-            Profile
-          </Text>
+          <Text style={styles.screenTitle}>Profile</Text>
           {/* <Image
             source={{
               uri: profileImage
@@ -198,59 +167,44 @@ const ProfileScreen = ({navigation}) => {
           /> */}
           {profileImage ? (
               <Image
-                source={{ uri: profileImage }}
+                source={{uri: profileImage}}
                 style={styles.avatar}
               />
             ) : (
               <FallbackAvatar name={name} />
             )}
-          <Text
-            style={{
-              textAlign: 'center',
-              fontSize: 16,
-              fontWeight: 'bold',
-              marginBottom: 20,
-            }}>
-            Member Since February 2024
-          </Text>
+          <View style={styles.profileHeroCard}>
+            <Text style={styles.profileName}>{name}</Text>
+            <Text style={styles.memberText}>Member Since February 2024</Text>
+          </View>
 
-          {/* <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => setIsEditing(true)}>
-            <Text style={styles.editButtonText}>
-              <Text style={{}}>
-                <AntDesign name={'edit'} size={20} color={'#ffff'} />
-              </Text>
-              Edit Profile
-            </Text>
-          </TouchableOpacity> */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Name:</Text>
-            <Text style={styles.value}>{name}</Text>
-          </View>
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Email:</Text>
-            <Text style={styles.value}>{email}</Text>
-          </View>
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Phone Number:</Text>
-            <Text style={styles.value}>{phoneNumber}</Text>
-          </View>
-          <View style={styles.fieldContainer}>
-            <Text style={styles.label}>Vehicle Number:</Text>
-            <Text style={styles.value}>{vehicleNumber}</Text>
-          </View>
-          <View style={styles.fieldContainerEnd}>
-            <Text style={styles.label}>License No:</Text>
-            <Text style={styles.value}>{documentNumber}</Text>
+          <View style={styles.detailsGroup}>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Name</Text>
+              <Text style={styles.value}>{name}</Text>
+            </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Email</Text>
+              <Text style={styles.value}>{email}</Text>
+            </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Phone</Text>
+              <Text style={styles.value}>{phoneNumber}</Text>
+            </View>
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>Vehicle</Text>
+              <Text style={styles.value}>{vehicleNumber}</Text>
+            </View>
+            <View style={styles.fieldContainerEnd}>
+              <Text style={styles.label}>License No</Text>
+              <Text style={styles.value}>{documentNumber}</Text>
+            </View>
           </View>
           <TouchableOpacity
             style={styles.editButton}
             onPress={handleLogout}
-            >
-            <Text style={styles.editButtonText}>
-             Logout
-            </Text>
+          >
+            <Text style={styles.editButtonText}>Logout</Text>
           </TouchableOpacity>
         </>
       )}
@@ -261,17 +215,31 @@ const ProfileScreen = ({navigation}) => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
-    position: 'relative',
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 28,
+  },
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 20,
+  },
+  backIcon: {
+    marginBottom: 14,
+  },
+  avatarWrapper: {
+    alignSelf: 'center',
+    marginTop: 2,
+    marginBottom: 12,
   },
   avatar: {
     width: 108,
     height: 108,
     borderRadius: 100,
-    marginBottom: 15,
     alignSelf: 'center',
-    backgroundColor:'#FBBC05'
+    backgroundColor: '#FBBC05',
   },
   fallbackAvatar: {
     width: 108,
@@ -281,47 +249,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#ccc',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 0,
   },
   fallbackAvatarText: {
     fontSize: 40,
     color: '#fff',
   },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    height: 34,
+    width: 34,
+    backgroundColor: '#fff',
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
   fieldContainerEdit: {
-    width: '98%',
-    marginBottom: 10,
-    paddingVertical: 10,
+    width: '100%',
+    marginBottom: 12,
+    paddingVertical: 2,
+  },
+  detailsGroup: {
+    marginVertical: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    paddingHorizontal: 14,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 1,
   },
   fieldContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '98%',
-    marginBottom: 15,
-    paddingVertical: 20,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'gray',
+    width: '100%',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   fieldContainerEnd: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '98%',
-    marginBottom: 15,
-    paddingVertical: 20,
+    width: '100%',
+    paddingVertical: 16,
   },
   label: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 0,
+    color: '#111827',
   },
   value: {
-    fontSize: 16,
-    color: 'gray',
+    fontSize: 15,
+    color: '#4B5563',
+    fontWeight: '500',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
   },
   imagesContainer: {
     flexDirection: 'row',
@@ -335,18 +332,34 @@ const styles = StyleSheet.create({
     height: 100,
     margin: 5,
   },
-  editButton: {
-    alignSelf: 'flex-end',
-    backgroundColor: 'black',
-    padding: 10,
-    width: '36%',
+  memberText: {
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  profileHeroCard: {
     alignItems: 'center',
-    borderRadius: 8,
-    // marginVertical: 15,
+    marginBottom: 12,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  editButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EF4444',
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+    borderRadius: 12,
+    marginTop: 4,
   },
   editButtonText: {
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   updateButton: {
     backgroundColor: 'green',

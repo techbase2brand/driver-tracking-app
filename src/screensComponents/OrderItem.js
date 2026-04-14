@@ -1,13 +1,18 @@
 // OrderItem.js
 import React from 'react';
-import {View, Text, Image, StyleSheet} from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 
 const OrderItem = ({order}) => {
   return (
     <View style={styles.container}>
-      {/* <Image source={{uri: 'https://plus.unsplash.com/premium_photo-1663858367001-89e5c92d1e0e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8Zm9vZHxlbnwwfHwwfHx8MA%3D%3D'}} style={styles.image} /> */}
+      <View style={styles.leadingAccent} />
       <View style={styles.textContainer}>
-        <Text style={styles.title}>#{order?.orderCreateData_id}</Text>
+        <View style={styles.topRow}>
+          <Text style={styles.title}>#{order?.orderCreateData_id}</Text>
+          <View style={styles.statusPill}>
+            <Text style={styles.statusPillText}>Delivered</Text>
+          </View>
+        </View>
         <View style={styles.itemCnt}>
           <Text style={styles.details}>4 Items</Text>
           <Text style={styles.date}>10 June, 2024</Text>
@@ -20,37 +25,70 @@ const OrderItem = ({order}) => {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    borderColor: '#ddd',
-    marginVertical: 20,
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: {width: 0, height: 2},
+    elevation: 1,
   },
-  image: {
-    width: 65,
-    height: 60,
-    marginRight: 10,
-    borderRadius: 10,
+  leadingAccent: {
+    width: 4,
+    height: 40,
+    borderRadius: 3,
+    backgroundColor: '#FBBC05',
+    marginTop: 2,
+    marginRight: 12,
   },
   textContainer: {
-    width:"100%",
+    flex: 1,
     justifyContent: 'center',
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   title: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '700',
+    color: '#111827',
+  },
+  statusPill: {
+    backgroundColor: '#ECFDF3',
+    borderColor: '#A7F3D0',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  statusPillText: {
+    color: '#047857',
+    fontSize: 12,
+    fontWeight: '700',
   },
   itemCnt: {
-    width:"99%",
-    flexDirection:"row",
-    justifyContent:"space-between"
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   details: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: '#6B7280',
   },
   date: {
-    fontSize: 14,
-    color: '#666',
-    fontWeight:"bold"
+    fontSize: 13,
+    color: '#374151',
+    fontWeight: '600',
   },
 });
 

@@ -10,8 +10,9 @@ import ProfileScreen from '../screens/ProfileScreen';
 import {createStackNavigator} from '@react-navigation/stack';
 import DriverScreen from '../screens/DriverScreen';
 import MapScreen from '../screens/MapScreen';
-import {Text} from 'react-native';
+import {Platform, Text} from 'react-native';
 import LoginScreen from '../screens/LoginScreen';
+import RoutePlannerScreen from '../screens/RoutePlannerScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -52,6 +53,11 @@ function HomeStack() {
           }
         }
       />
+      <Stack.Screen
+        name="RoutePlannerScreen"
+        component={RoutePlannerScreen}
+        options={{title: 'Route Planner'}}
+      />
     </Stack.Navigator>
   );
 }
@@ -88,7 +94,23 @@ const BottomTabNavigator = () => {
           return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarActiveTintColor: '#FBBC05',
-        tabBarInactiveTintColor: 'black',
+        tabBarInactiveTintColor: '#4B5563',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '600',
+          marginBottom: Platform.OS === 'ios' ? 0 : 6,
+        },
+        tabBarIconStyle: {
+          marginTop: 6,
+        },
+        tabBarStyle: {
+          height: Platform.OS === 'ios' ? 86 : 68,
+          paddingTop: 6,
+          paddingBottom: Platform.OS === 'ios' ? 22 : 10,
+          borderTopWidth: 1,
+          borderTopColor: '#E5E7EB',
+          backgroundColor: '#FFFFFF',
+        },
       })}
       detachInactiveScreens={false}>
       <Tab.Screen

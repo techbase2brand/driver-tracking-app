@@ -1,6 +1,6 @@
 // OrderHistory.js
 import React, {useEffect, useState} from 'react';
-import {View, FlatList, StyleSheet, Text,ActivityIndicator} from 'react-native';
+import {View, FlatList, StyleSheet, Text, ActivityIndicator} from 'react-native';
 import OrderItem from '../screensComponents/OrderItem';
 import {useSelector} from 'react-redux';
 import {
@@ -45,48 +45,72 @@ const OrderHistoryScreen = () => {
     fetchOrders();
   }, [email]);
   return (
-    // <View style={styles.container}>
-    //   <Text style={styles.title}>Order History</Text>
-    //   {orders?.getorderCreateData ? (
-    //     <FlatList
-    //       data={orders?.getorderCreateData}
-    //       keyExtractor={item => item.id}
-    //       renderItem={({item}) => <OrderItem order={item} />}
-    //     />
-    //   ) : (
-    //     <Text style={{textAlign: 'center'}}>No Orders Available</Text>
-    //   )}
-    // </View>
     <View style={styles.container}>
-    <Text style={styles.title}>Order History</Text>
-    {loading ? ( 
-      <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
-    ) : orders?.getorderCreateData?.length > 0 ? (
-      <FlatList
-        data={orders?.getorderCreateData}
-        keyExtractor={item => item?.id}
-        renderItem={({ item }) => <OrderItem order={item} />}
-      />
-    ) : (
-      <Text style={{ textAlign: 'center' }}>No Orders Available</Text>
-    )}
-  </View>
+      <Text style={styles.title}>Order History</Text>
+      <Text style={styles.subtitle}>Track all delivered and active orders</Text>
+      {loading ? (
+        <ActivityIndicator size="large" color="#1F2937" style={styles.loader} />
+      ) : orders?.getorderCreateData?.length > 0 ? (
+        <FlatList
+          data={orders?.getorderCreateData}
+          keyExtractor={item => `${item?.id || item?.orderCreateData_id}`}
+          renderItem={({item}) => <OrderItem order={item} />}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No Orders Available</Text>
+          <Text style={styles.emptySubtitle}>
+            Delivered and upcoming orders will appear here.
+          </Text>
+        </View>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 16,
+    paddingTop: 14,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginVertical: 20,
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 14,
   },
   loader: {
-    marginTop: 200,
+    marginTop: 120,
+  },
+  listContent: {
+    paddingBottom: 20,
+    paddingHorizontal: 2,
+  },
+  emptyState: {
+    marginTop: 100,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: 'center',
+    color: '#6B7280',
   },
 });
 
