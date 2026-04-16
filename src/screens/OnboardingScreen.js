@@ -7,9 +7,10 @@ import {
   StyleSheet,
   ImageBackground,
   Dimensions,
+  TouchableOpacity,
 } from 'react-native';
 
-const OnboardingScreen = ({onFinish}) => {
+const OnboardingScreen = ({ onFinish }) => {
   const windowWidth = Dimensions.get('window').width;
   const windowHeight = Dimensions.get('window').height;
   return (
@@ -22,9 +23,9 @@ const OnboardingScreen = ({onFinish}) => {
           padding: 20,
         }}
         resizeMode="cover">
-        <View style={{flex: 2}} />
-        <View style={{flex: 1}}>
-          <Text style={[styles.text, {textAlign: 'center'}]}>
+        <View style={{ flex: 2 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.text, { textAlign: 'center' }]}>
             Deliver smarter, every trip
           </Text>
           <Text style={styles.subText}>
@@ -33,7 +34,7 @@ const OnboardingScreen = ({onFinish}) => {
             for drivers on the road.
           </Text>
           {/* <Text title="Get Started" onPress={onFinish} /> */}
-          <View
+          {/* <View
             style={{
               flexDirection: 'row',
               justifyContent: 'space-between',
@@ -46,7 +47,10 @@ const OnboardingScreen = ({onFinish}) => {
             <Text style={[styles.text, {fontSize: 17}]} onPress={onFinish}>
               Skip
             </Text>
-          </View>
+          </View> */}
+          <TouchableOpacity style={styles.button} onPress={onFinish}>
+            <Text style={styles.buttonText}>Get Started</Text>
+          </TouchableOpacity>
         </View>
       </ImageBackground>
     </View>
@@ -72,6 +76,19 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  button: {
+    backgroundColor: '#000',
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

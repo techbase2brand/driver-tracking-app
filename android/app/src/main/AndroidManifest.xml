@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
@@ -13,10 +14,9 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="false"
       android:theme="@style/AppTheme">
-      <!-- Keep in sync with GOOGLE_MAPS_APIKEY in src/constant/Constant.js (Maps SDK + Directions). -->
       <meta-data
-        android:name="com.google.android.geo.API_KEY"
-        android:value="AIzaSyBEQp-ZFMYZjsTNyximu2pAifQ9EWA4W3M"/>
+    android:name="com.google.android.geo.API_KEY"
+    android:value="AIzaSyBEQp-ZFMYZjsTNyximu2pAifQ9EWA4W3M"/>
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"
@@ -29,5 +29,6 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+
     </application>
 </manifest>

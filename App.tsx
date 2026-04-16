@@ -6,6 +6,7 @@ import { store, persistor } from './src/redux/store';
 import AppNavigator from './src/navigations/AppNavigator';
 import messaging from '@react-native-firebase/messaging';
 import notifee from '@notifee/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let badgeCount = 0;
 
@@ -40,6 +41,7 @@ async function getFcmToken() {
     await messaging().registerDeviceForRemoteMessages();
     const token = await messaging().getToken();
     console.log('🔥 FCM Token:', token);
+    await AsyncStorage.setItem('fcmToken', token);
   } catch (e) {
     console.log('Token error:', e);
   }

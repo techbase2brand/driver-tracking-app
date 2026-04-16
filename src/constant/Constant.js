@@ -1,7 +1,7 @@
 export const GOOGLE_MAPS_APIKEY = 'AIzaSyBEQp-ZFMYZjsTNyximu2pAifQ9EWA4W3M';
 export const BACKEND_URL = 'https://foam-writers-ruled-eliminate.trycloudflare.com/';
 export const API_BASE_URL =
-  'https://world-champion-approximately-isbn.trycloudflare.com/api/';
+  'https://recreation-hollow-masters-validation.trycloudflare.com/api/';
 
 /**
  * Client demo: no backend required. Set to false to use real API calls again

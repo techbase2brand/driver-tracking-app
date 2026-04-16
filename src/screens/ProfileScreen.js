@@ -24,9 +24,6 @@ import {useFocusEffect} from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
-
-
-
 const ProfileScreen = () => {
   const dispatch = useDispatch();
   const DriverDetail = useSelector(state => state?.email);

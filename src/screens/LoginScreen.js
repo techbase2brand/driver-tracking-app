@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,11 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Button from '../shared/Button';
-import {useDispatch} from 'react-redux';
-import {setEmail} from '../redux/action';
-import {API_BASE_URL} from '../constant/Constant';
-
+import { useDispatch } from 'react-redux';
+import { setEmail } from '../redux/action';
+import { API_BASE_URL } from '../constant/Constant';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import messaging from '@react-native-firebase/messaging';
 /** Basic email format check (password intentionally not regex-based). */
 const isValidEmail = email => {
   const trimmed = email.trim();
@@ -50,11 +51,22 @@ const LoginScreen = () => {
   const [passwordError, setPasswordError] = useState('');
   /** Wrong email/password after format checks — highlight both fields, no sensitive hints. */
   const [credentialsMismatch, setCredentialsMismatch] = useState(false);
-  // const onloginClick = () => {
-  //   console.log('working....');
-  //   // dispatch(setEmail(value));
-  //   navigation.navigate('OtpVerification');
-  // };
+
+  const getFcmToken = async () => {
+    try {
+      await messaging().requestPermission(); // iOS ke liye
+      await messaging().registerDeviceForRemoteMessages();
+
+      const token = await messaging().getToken();
+      // console.log('🔥 Fresh FCM Token In login:', token);
+
+      return token;
+    } catch (e) {
+      console.log('FCM Token Error:', e);
+      return null;
+    }
+  };
+
   const onloginClick = async () => {
     let valid = true;
     const trimmedEmail = emailText.trim();
@@ -81,7 +93,8 @@ const LoginScreen = () => {
     console.log('working....');
     console.log('emailText....', emailText);
     console.log('passwordText....', passwordText);
-
+    const fcmToken = await getFcmToken();
+    console.log('📲 FCM Token in Login:', fcmToken);
     try {
       setIsLoginLoading(true);
       const response = await fetch(LOGIN_API_URL, {
@@ -92,6 +105,7 @@ const LoginScreen = () => {
         body: JSON.stringify({
           email: emailText.trim(),
           password: passwordText,
+          fcmToken: fcmToken,
         }),
       });
 
@@ -144,82 +158,82 @@ const LoginScreen = () => {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-      <Image
-        source={require('../assests/startupLogin.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <Text style={styles.title}>Get Started With App</Text>
-      <Text
-        style={{
-          color: 'black',
-          textAlign: 'center',
-          marginBottom: 40,
-          fontSize: 16,
-        }}>
-        Login or Signup to use App
-      </Text>
-      <View style={{marginBottom: 20}}>
-        <Text style={styles.inputTitle}>Email</Text>
-        <TextInput
-          style={[
-            styles.input,
-            emailError || credentialsMismatch ? styles.inputError : null,
-          ]}
-          placeholder="Email"
-          value={emailText}
-          onChangeText={text => {
-            setEmailText(text);
-            setCredentialsMismatch(false);
-            if (emailError) {
-              setEmailError('');
-            }
-          }}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          spellCheck={false}
-          textContentType="username"
-          autoComplete="email"
-          placeholderTextColor="gray"
+        <Image
+          source={require('../assests/startupLogin.png')}
+          style={styles.logo}
+          resizeMode="contain"
         />
-        {emailError && emailError.trim() ? (
-          <Text style={styles.errorText}>{emailError}</Text>
-        ) : null}
-        <Text style={styles.inputTitle}>Password</Text>
-        <View
-          style={[
-            styles.passwordInputWrapper,
-            passwordError || credentialsMismatch ? styles.inputError : null,
-          ]}>
+        <Text style={styles.title}>Get Started With App</Text>
+        <Text
+          style={{
+            color: 'black',
+            textAlign: 'center',
+            marginBottom: 40,
+            fontSize: 16,
+          }}>
+          Login or Signup to use App
+        </Text>
+        <View style={{ marginBottom: 20 }}>
+          <Text style={styles.inputTitle}>Email</Text>
           <TextInput
-            style={styles.passwordInput}
-            placeholder="Password"
-            secureTextEntry={!showPassword}
-            value={passwordText}
+            style={[
+              styles.input,
+              emailError || credentialsMismatch ? styles.inputError : null,
+            ]}
+            placeholder="Email"
+            value={emailText}
             onChangeText={text => {
-              setPasswordText(text);
+              setEmailText(text);
               setCredentialsMismatch(false);
-              if (passwordError) {
-                setPasswordError('');
+              if (emailError) {
+                setEmailError('');
               }
             }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            spellCheck={false}
+            textContentType="username"
+            autoComplete="email"
+            placeholderTextColor="gray"
           />
-          <TouchableOpacity
-            style={styles.eyeButton}
-            activeOpacity={0.7}
-            onPress={() => setShowPassword(prev => !prev)}>
-            <Ionicons
-              name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-              size={20}
-              color="#6B7280"
+          {emailError && emailError.trim() ? (
+            <Text style={styles.errorText}>{emailError}</Text>
+          ) : null}
+          <Text style={styles.inputTitle}>Password</Text>
+          <View
+            style={[
+              styles.passwordInputWrapper,
+              passwordError || credentialsMismatch ? styles.inputError : null,
+            ]}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Password"
+              secureTextEntry={!showPassword}
+              value={passwordText}
+              onChangeText={text => {
+                setPasswordText(text);
+                setCredentialsMismatch(false);
+                if (passwordError) {
+                  setPasswordError('');
+                }
+              }}
             />
-          </TouchableOpacity>
-        </View>
-        {passwordError ? (
-          <Text style={styles.errorText}>{passwordError}</Text>
-        ) : null}
-        {/* <View style={styles.socialLoginContainer}>
+            <TouchableOpacity
+              style={styles.eyeButton}
+              activeOpacity={0.7}
+              onPress={() => setShowPassword(prev => !prev)}>
+              <Ionicons
+                name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color="#6B7280"
+              />
+            </TouchableOpacity>
+          </View>
+          {passwordError ? (
+            <Text style={styles.errorText}>{passwordError}</Text>
+          ) : null}
+          {/* <View style={styles.socialLoginContainer}>
         <View style={styles.line} />
         <Text style={styles.orText}>Login With Phone Number</Text>
         <View style={styles.line} />
@@ -250,13 +264,13 @@ const LoginScreen = () => {
           textContainerStyle={{borderRadius: 8}}
           textInputStyle={{height: 70}}
         /> */}
-      </View>
-      <Button
-        onloginClick={onloginClick}
-        title="Login"
-        loading={isLoginLoading}
-      />
-      {/* <Text style={styles.registerText}>By continuing you agree to our </Text>
+        </View>
+        <Button
+          onloginClick={onloginClick}
+          title="Login"
+          loading={isLoginLoading}
+        />
+        {/* <Text style={styles.registerText}>By continuing you agree to our </Text>
       <View style={styles.linksContainer}>
         <TouchableOpacity onPress={() => handlePress('Terms of Service')}>
           <Text style={styles.linkText}>Terms of Service</Text>
