@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "449978615424",
+    "project_id": "driverapp-bef11",
+    "storage_bucket": "driverapp-bef11.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:449978615424:android:aeb6ad5436b895bfa5c865",
+        "android_client_info": {
+          "package_name": "com.locationtracking"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBeLPoh2bYiA60upfWD1EFNBh2a3yYCKu0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

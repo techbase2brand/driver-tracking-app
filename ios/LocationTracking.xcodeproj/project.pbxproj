@@ -13,6 +13,8 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		3DE70D48E853F2A56E5E9708 /* Pods_LocationTracking_LocationTrackingTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6AA1CFF8BED02D5CE987FE84 /* Pods_LocationTracking_LocationTrackingTests.framework */; };
+		4E8B04A02F8F616F00954329 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4E8B049F2F8F616F00954329 /* GoogleService-Info.plist */; };
+		4E8B04A12F8F616F00954329 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 4E8B049F2F8F616F00954329 /* GoogleService-Info.plist */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		8517299DC56A3E4FD7408B31 /* Pods_LocationTracking.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35BC1D066ADF242B32A97B6B /* Pods_LocationTracking.framework */; };
 /* End PBXBuildFile section */
@@ -40,6 +42,8 @@
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = LocationTracking/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		35BC1D066ADF242B32A97B6B /* Pods_LocationTracking.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_LocationTracking.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B4392A12AC88292D35C810B /* Pods-LocationTracking.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LocationTracking.debug.xcconfig"; path = "Target Support Files/Pods-LocationTracking/Pods-LocationTracking.debug.xcconfig"; sourceTree = "<group>"; };
+		4E8B049F2F8F616F00954329 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		4E8B04A22F8F67A800954329 /* LocationTracking.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; name = LocationTracking.entitlements; path = LocationTracking/LocationTracking.entitlements; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-LocationTracking.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LocationTracking.release.xcconfig"; path = "Target Support Files/Pods-LocationTracking/Pods-LocationTracking.release.xcconfig"; sourceTree = "<group>"; };
 		5B7EB9410499542E8C5724F5 /* Pods-LocationTracking-LocationTrackingTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-LocationTracking-LocationTrackingTests.debug.xcconfig"; path = "Target Support Files/Pods-LocationTracking-LocationTrackingTests/Pods-LocationTracking-LocationTrackingTests.debug.xcconfig"; sourceTree = "<group>"; };
 		6AA1CFF8BED02D5CE987FE84 /* Pods_LocationTracking_LocationTrackingTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_LocationTracking_LocationTrackingTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -89,6 +93,7 @@
 		13B07FAE1A68108700A75B9A /* LocationTracking */ = {
 			isa = PBXGroup;
 			children = (
+				4E8B04A22F8F67A800954329 /* LocationTracking.entitlements */,
 				13B07FAF1A68108700A75B9A /* AppDelegate.h */,
 				13B07FB01A68108700A75B9A /* AppDelegate.mm */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
@@ -121,6 +126,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
+				4E8B049F2F8F616F00954329 /* GoogleService-Info.plist */,
 				13B07FAE1A68108700A75B9A /* LocationTracking */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				00E356EF1AD99517003FC87E /* LocationTrackingTests */,
@@ -240,6 +246,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4E8B04A12F8F616F00954329 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -248,6 +255,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
+				4E8B04A02F8F616F00954329 /* GoogleService-Info.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				029A90350F3C864EDB65083F /* PrivacyInfo.xcprivacy in Resources */,
 			);
@@ -485,6 +493,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LocationTracking/LocationTracking.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 63P56L88DA;
 				ENABLE_BITCODE = NO;
@@ -513,6 +522,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LocationTracking/LocationTracking.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 63P56L88DA;
 				INFOPLIST_FILE = LocationTracking/Info.plist;
